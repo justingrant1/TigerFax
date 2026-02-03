@@ -1,0 +1,36 @@
+{
+  "expo": {
+    "name": "TigerFax",
+    "slug": "vibecode",
+    "scheme": "vibecode",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "bundleIdentifier": "com.tigerfax.app",
+      "buildNumber": "4",
+      "supportsTablet": true,
+      "usesAppleSignIn": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCalendarsUsageDescription": "TigerFax uses your calendar to help schedule fax reminders and save important dates.",
+        "NSContactsUsageDescription": "TigerFax accesses your contacts to let you choose recipients quickly when sending faxes.",
+        "NSCameraUsageDescription": "TigerFax uses your camera to scan documents before sending a fax.",
+        "NSLocationWhenInUseUsageDescription": "TigerFax uses your location to improve delivery accuracy and help with regional compliance when sending faxes."
+      }
+    },
+    "android": {
+      "package": "com.tigerfax.app",
+      "edgeToEdgeEnabled": true
+    },
+    "web": {
+      "bundler": "webpack"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "aba9ca9a-65dd-4fb1-b11f-8a05b467dd2a"
+      }
+    }
+  }
+}

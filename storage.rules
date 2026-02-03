@@ -1,0 +1,26 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Allow authenticated users to read/write their own received faxes
+    match /receivedFaxes/{userId}/{allPaths=**} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Allow Cloud Functions to write received faxes for any user
+    match /receivedFaxes/{userId}/{faxId} {
+      allow write: if true; // Cloud Functions will write here via Admin SDK
+    }
+    
+    // Allow authenticated users to read/write their own sent fax documents
+    match /faxDocuments/{userId}/{allPaths=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Default: deny all access
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

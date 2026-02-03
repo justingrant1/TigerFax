@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "284588311525",
+    "project_id": "tigerfax-e3915",
+    "storage_bucket": "tigerfax-e3915.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:284588311525:android:e847ca01ca53effc2d250c",
+        "android_client_info": {
+          "package_name": "com.tigerfax.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "284588311525-ip6nf8gc478acdd2jd3rpelj1rrf9c3d.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC26dqE_jvRDr2S5bryTPAZQzpRlvrkr0U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "284588311525-ip6nf8gc478acdd2jd3rpelj1rrf9c3d.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "284588311525-ah797j96982kb6090denk7gal9k8oh79.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.tigerfax.app"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
