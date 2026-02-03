@@ -15,6 +15,9 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSCalendarsUsageDescription": "TigerFax uses your calendar to help schedule fax reminders and save important dates.",
+        "NSCalendarsFullAccessUsageDescription": "TigerFax uses your calendar to help schedule fax reminders and save important dates.",
+        "NSRemindersUsageDescription": "TigerFax uses reminders to notify you about scheduled faxes.",
+        "NSRemindersFullAccessUsageDescription": "TigerFax uses reminders to notify you about scheduled faxes.",
         "NSContactsUsageDescription": "TigerFax accesses your contacts to let you choose recipients quickly when sending faxes.",
         "NSCameraUsageDescription": "TigerFax uses your camera to scan documents before sending a fax.",
         "NSLocationWhenInUseUsageDescription": "TigerFax uses your location to improve delivery accuracy and help with regional compliance when sending faxes."
@@ -24,8 +27,11 @@
       "package": "com.tigerfax.app",
       "edgeToEdgeEnabled": true
     },
+    "plugins": [
+      "expo-apple-authentication"
+    ],
     "web": {
-      "bundler": "webpack"
+      "bundler": "metro"
     },
     "extra": {
       "eas": {
