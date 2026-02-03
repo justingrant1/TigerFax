@@ -7,6 +7,7 @@ import AppNavigator from "./src/navigation/AppNavigator";
 import { resumePolling } from "./src/services/fax-polling";
 import { ErrorBoundary } from "./src/components/ErrorBoundary";
 import { initializeNotifications, addNotificationResponseListener } from "./src/services/notifications";
+import { initializePurchases } from "./src/services/purchases";
 import { AuthProvider } from "./src/contexts/AuthContext";
 import { ThemeProvider } from "./src/contexts/ThemeContext";
 
@@ -36,9 +37,12 @@ export default function App() {
   useEffect(() => {
     // Resume polling for incomplete faxes
     resumePolling();
-    
+
     // Initialize notifications
     initializeNotifications();
+
+    // Initialize RevenueCat for subscriptions
+    initializePurchases();
     
     // Handle notification taps
     const subscription = addNotificationResponseListener((response) => {
