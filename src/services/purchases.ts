@@ -22,19 +22,32 @@ const REVENUECAT_ANDROID_KEY = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY ||
 export const initializePurchases = async (userId?: string): Promise<void> => {
   try {
     const apiKey = Platform.OS === 'ios' ? REVENUECAT_IOS_KEY : REVENUECAT_ANDROID_KEY;
-    
+
+    // Debug logging
+    console.log('🔧 [RC Init] Platform:', Platform.OS);
+    console.log('🔧 [RC Init] API Key (first 10 chars):', apiKey?.substring(0, 10) + '...');
+    console.log('🔧 [RC Init] API Key length:', apiKey?.length);
+
     // Configure SDK
     Purchases.setLogLevel(LOG_LEVEL.DEBUG);
     await Purchases.configure({ apiKey });
 
+    // Get app user ID after configure
+    const appUserID = await Purchases.getAppUserID();
+    console.log('🔧 [RC Init] App User ID:', appUserID);
+
     // Set user ID if provided (link to Firebase auth)
     if (userId) {
+      console.log('🔧 [RC Init] Logging in with user ID:', userId);
       await Purchases.logIn(userId);
     }
 
     console.log('✅ RevenueCat initialized successfully');
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Failed to initialize RevenueCat:', error);
+    console.error('❌ Error name:', error?.name);
+    console.error('❌ Error message:', error?.message);
+    console.error('❌ Error code:', error?.code);
     // Don't throw - app should work even if monetization fails
   }
 };
@@ -44,31 +57,63 @@ export const initializePurchases = async (userId?: string): Promise<void> => {
  */
 export const getOfferings = async (): Promise<PurchasesOfferings | null> => {
   try {
-    console.log('🔍 Fetching RevenueCat offerings...');
+    console.log('🔍 [RC Offerings] Starting fetch...');
+
+    // Check if SDK is configured
+    const isConfigured = await Purchases.isConfigured();
+    console.log('🔍 [RC Offerings] SDK configured:', isConfigured);
+
+    if (!isConfigured) {
+      console.error('❌ [RC Offerings] SDK not configured! Call initializePurchases first.');
+      return null;
+    }
+
     const offerings = await Purchases.getOfferings();
-    
-    if (offerings.current !== null) {
-      const packages = offerings.current.availablePackages;
-      console.log('✅ Available offerings:', packages.length);
-      
+
+    // Log raw offerings structure
+    console.log('🔍 [RC Offerings] Raw offerings object keys:', Object.keys(offerings || {}));
+    console.log('🔍 [RC Offerings] All offerings keys:', Object.keys(offerings?.all || {}));
+    console.log('🔍 [RC Offerings] Current offering exists:', !!offerings?.current);
+
+    if (offerings?.current) {
+      console.log('🔍 [RC Offerings] Current offering identifier:', offerings.current.identifier);
+      const packages = offerings.current.availablePackages || [];
+      console.log('🔍 [RC Offerings] Available packages count:', packages.length);
+
       // Debug: Log all package details
-      packages.forEach(pkg => {
-        console.log('📦 Package:', {
+      packages.forEach((pkg, index) => {
+        console.log(`📦 [RC Package ${index}]:`, {
           identifier: pkg.identifier,
           packageType: pkg.packageType,
-          productId: pkg.product.identifier,
-          price: pkg.product.priceString,
+          productId: pkg.product?.identifier,
+          price: pkg.product?.priceString,
+          productTitle: pkg.product?.title,
         });
       });
-      
+
       return offerings;
     }
-    
-    console.warn('⚠️ No current offering configured in RevenueCat');
-    console.log('All offerings:', JSON.stringify(offerings, null, 2));
-    return null;
-  } catch (error) {
-    console.error('❌ Error fetching offerings:', error);
+
+    // Log what we got if no current offering
+    console.warn('⚠️ [RC Offerings] No current offering!');
+    console.log('🔍 [RC Offerings] All offerings detail:', JSON.stringify(offerings?.all, null, 2));
+
+    // Check if there are any offerings at all
+    const allOfferingIds = Object.keys(offerings?.all || {});
+    if (allOfferingIds.length > 0) {
+      console.log('🔍 [RC Offerings] Found offerings but none marked as current:', allOfferingIds);
+      // Try to get the first one as fallback
+      const firstOffering = offerings.all[allOfferingIds[0]];
+      console.log('🔍 [RC Offerings] First offering packages:', firstOffering?.availablePackages?.length);
+    }
+
+    return offerings;
+  } catch (error: any) {
+    console.error('❌ [RC Offerings] Error fetching:', error);
+    console.error('❌ [RC Offerings] Error name:', error?.name);
+    console.error('❌ [RC Offerings] Error message:', error?.message);
+    console.error('❌ [RC Offerings] Error code:', error?.code);
+    console.error('❌ [RC Offerings] Error userInfo:', JSON.stringify(error?.userInfo, null, 2));
     return null;
   }
 };
@@ -180,5 +225,103 @@ export const switchUser = async (newUserId: string): Promise<void> => {
     console.log('✅ RevenueCat user switched to:', newUserId);
   } catch (error) {
     console.error('Error switching RevenueCat user:', error);
+  }
+};
+
+/**
+ * Debug: Check products directly from StoreKit
+ */
+export const debugCheckProducts = async (): Promise<void> => {
+  try {
+    console.log('🔧 [RC Debug] Checking products directly...');
+
+    const isConfigured = await Purchases.isConfigured();
+    console.log('🔧 [RC Debug] Configured:', isConfigured);
+
+    const appUserID = await Purchases.getAppUserID();
+    console.log('🔧 [RC Debug] App User ID:', appUserID);
+
+    // Try to get customer info
+    const customerInfo = await Purchases.getCustomerInfo();
+    console.log('🔧 [RC Debug] Customer info received');
+    console.log('🔧 [RC Debug] Active entitlements:', Object.keys(customerInfo.entitlements.active));
+    console.log('🔧 [RC Debug] All purchased product IDs:', customerInfo.allPurchasedProductIdentifiers);
+
+    // Try to get offerings
+    console.log('🔧 [RC Debug] Fetching offerings...');
+    const offerings = await Purchases.getOfferings();
+    console.log('🔧 [RC Debug] Offerings fetched');
+    console.log('🔧 [RC Debug] Has current:', !!offerings?.current);
+    console.log('🔧 [RC Debug] All offering IDs:', Object.keys(offerings?.all || {}));
+
+    if (offerings?.current) {
+      console.log('🔧 [RC Debug] Current packages:', offerings.current.availablePackages.map(p => ({
+        id: p.identifier,
+        product: p.product?.identifier,
+        price: p.product?.priceString
+      })));
+    }
+
+  } catch (error: any) {
+    console.error('🔧 [RC Debug] Error:', error?.message || error);
+    console.error('🔧 [RC Debug] Full error:', JSON.stringify(error, null, 2));
+  }
+};
+
+/**
+ * Debug: Query StoreKit directly for specific product IDs
+ * This bypasses RevenueCat offerings and checks if products exist in StoreKit
+ */
+export const checkStoreKitProducts = async (productIds: string[] = ['tigerfax_pro_monthly', 'tigerfax_pro_yearly']): Promise<void> => {
+  console.log('═══════════════════════════════════════════════════════════');
+  console.log('🏪 [StoreKit Check] Starting direct product validation...');
+  console.log('🏪 [StoreKit Check] Product IDs to check:', productIds);
+  console.log('═══════════════════════════════════════════════════════════');
+
+  try {
+    const isConfigured = await Purchases.isConfigured();
+    if (!isConfigured) {
+      console.error('🏪 [StoreKit Check] ❌ RevenueCat not configured!');
+      return;
+    }
+
+    // Use RevenueCat's getProducts to query StoreKit directly
+    const products = await Purchases.getProducts(productIds);
+
+    console.log('🏪 [StoreKit Check] ═══════════════════════════════════');
+    console.log('🏪 [StoreKit Check] RESULTS:');
+    console.log('🏪 [StoreKit Check] ═══════════════════════════════════');
+    console.log('🏪 [StoreKit Check] Products requested:', productIds.length);
+    console.log('🏪 [StoreKit Check] Products returned:', products.length);
+
+    if (products.length === 0) {
+      console.log('🏪 [StoreKit Check] ❌ NO PRODUCTS FOUND IN STOREKIT');
+      console.log('🏪 [StoreKit Check] This means Apple servers have not propagated your products yet.');
+      console.log('🏪 [StoreKit Check] Wait 2-24 hours after signing Paid Applications agreement.');
+    } else {
+      console.log('🏪 [StoreKit Check] ✅ PRODUCTS FOUND!');
+      products.forEach((product, index) => {
+        console.log(`🏪 [StoreKit Check] Product ${index + 1}:`, {
+          identifier: product.identifier,
+          title: product.title,
+          description: product.description,
+          price: product.priceString,
+          currencyCode: product.currencyCode,
+        });
+      });
+    }
+
+    // Check which products are missing
+    const foundIds = products.map(p => p.identifier);
+    const missingIds = productIds.filter(id => !foundIds.includes(id));
+    if (missingIds.length > 0) {
+      console.log('🏪 [StoreKit Check] ⚠️ Missing products:', missingIds);
+    }
+
+    console.log('🏪 [StoreKit Check] ═══════════════════════════════════');
+
+  } catch (error: any) {
+    console.error('🏪 [StoreKit Check] ❌ Error querying StoreKit:', error?.message);
+    console.error('🏪 [StoreKit Check] Error code:', error?.code);
   }
 };

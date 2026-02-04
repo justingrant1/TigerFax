@@ -36,6 +36,11 @@ export default function SubscriptionScreen({ navigation }: Props) {
       setOfferingsError(null);
       const offerings = await getOfferings();
 
+      // Debug logging
+      console.log('📦 Raw offerings:', JSON.stringify(offerings, null, 2));
+      console.log('📦 Current offering:', offerings?.current);
+      console.log('📦 All offering keys:', offerings ? Object.keys(offerings.all || {}) : 'none');
+
       if (!offerings?.current) {
         setPackages({});
         setOfferingsError('No subscription offerings available right now.');
@@ -43,6 +48,7 @@ export default function SubscriptionScreen({ navigation }: Props) {
       }
 
       const availablePackages = offerings.current.availablePackages ?? [];
+      console.log('📦 Available packages:', availablePackages.length, availablePackages.map(p => p.identifier));
       const monthlyIdentifiers = ['$rc_monthly', 'monthly', 'pro_monthly'];
       const yearlyIdentifiers = ['$rc_annual', '$rc_yearly', 'annual', 'yearly', 'pro_yearly'];
       const monthlyProductIds = ['tigerfax_pro_monthly', 'tigerfax.pro.monthly'];
