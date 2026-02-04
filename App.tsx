@@ -7,7 +7,7 @@ import AppNavigator from "./src/navigation/AppNavigator";
 import { resumePolling } from "./src/services/fax-polling";
 import { ErrorBoundary } from "./src/components/ErrorBoundary";
 import { initializeNotifications, addNotificationResponseListener } from "./src/services/notifications";
-import { initializePurchases } from "./src/services/purchases";
+import { initializePurchases, debugCheckProducts, checkStoreKitProducts } from "./src/services/purchases";
 import { AuthProvider } from "./src/contexts/AuthContext";
 import { ThemeProvider } from "./src/contexts/ThemeContext";
 
@@ -42,7 +42,15 @@ export default function App() {
     initializeNotifications();
 
     // Initialize RevenueCat for subscriptions
-    initializePurchases();
+    const initRC = async () => {
+      await initializePurchases();
+      // Run debug checks after initialization
+      setTimeout(async () => {
+        await checkStoreKitProducts(); // Direct StoreKit check
+        await debugCheckProducts();     // Full debug check
+      }, 2000);
+    };
+    initRC();
     
     // Handle notification taps
     const subscription = addNotificationResponseListener((response) => {
