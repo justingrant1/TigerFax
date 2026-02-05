@@ -13,7 +13,7 @@ import {
 import { Platform } from 'react-native';
 import * as Crypto from 'expo-crypto';
 import { auth, isFirebaseConfigured } from '../config/firebase';
-import { createUserDocument, getUserDocument } from '../services/firestore';
+import { createUserDocument, getUserDocument, subscribeToUserData } from '../services/firestore';
 
 // Apple auth is only available in published iOS builds, not in Expo Go or Vibecode preview
 // We'll check availability at runtime before attempting to use it
@@ -93,7 +93,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Fetch user data from Firestore
+  // Fetch user data from Firestore (one-time fetch)
   const fetchUserData = async (uid: string) => {
     if (!isFirebaseConfigured) return;
     try {
@@ -105,7 +105,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  // Listen to authentication state changes
+  // Listen to authentication state changes AND real-time user data updates
   useEffect(() => {
     // If Firebase is not configured, just set loading to false
     if (!isFirebaseConfigured || !auth) {
@@ -113,12 +113,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       return;
     }
 
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    let userDataUnsubscribe: (() => void) | null = null;
+
+    const authUnsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
 
+      // Clean up previous user data listener
+      if (userDataUnsubscribe) {
+        userDataUnsubscribe();
+        userDataUnsubscribe = null;
+      }
+
       if (firebaseUser) {
-        // User is signed in, fetch their data
-        await fetchUserData(firebaseUser.uid);
+        // User is signed in, set up real-time listener for user data
+        userDataUnsubscribe = subscribeToUserData(firebaseUser.uid, (data) => {
+          setUserData(data);
+        });
       } else {
         // User is signed out
         setUserData(null);
@@ -127,7 +137,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setLoading(false);
     });
 
-    return unsubscribe;
+    return () => {
+      authUnsubscribe();
+      if (userDataUnsubscribe) {
+        userDataUnsubscribe();
+      }
+    };
   }, []);
 
   // Sign up with email and password

@@ -12,6 +12,7 @@ import {
   Alert,
   Platform,
   Pressable,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -30,7 +31,7 @@ import ErrorMessage from '../components/ErrorMessage';
 import DocumentPreviewModal from '../components/DocumentPreviewModal';
 
 export const InboxScreen: React.FC = () => {
-  const { user, userData } = useAuth();
+  const { user, userData, refreshUserData } = useAuth();
   const navigation = useNavigation();
   const [faxes, setFaxes] = useState<ReceivedFax[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,9 +76,11 @@ export const InboxScreen: React.FC = () => {
   }, [user, isPro]);
 
   // Handle refresh
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     setRefreshing(true);
-    loadFaxes();
+    await refreshUserData(); // Refresh user data to get fax number
+    await loadFaxes();
+    setRefreshing(false);
   };
 
   // Handle fax tap
@@ -223,6 +226,34 @@ export const InboxScreen: React.FC = () => {
               Upgrade to Pro
             </Text>
           </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  // Show provisioning status for Pro users without a fax number yet
+  if (isPro && !faxNumber) {
+    return (
+      <View className="flex-1 bg-gray-50 dark:bg-gray-900">
+        <View className="flex-1 justify-center items-center p-6">
+          <ActivityIndicator size="large" color="#2563eb" />
+          <Text className="text-2xl font-bold text-gray-900 dark:text-white text-center mb-2 mt-4">
+            Setting Up Your Fax Number
+          </Text>
+          <Text className="text-base text-gray-600 dark:text-gray-300 text-center mb-6">
+            We're provisioning your dedicated fax number. This usually takes just a few moments...
+          </Text>
+          <TouchableOpacity
+            className="bg-gray-200 dark:bg-gray-700 py-3 px-6 rounded-lg mt-4"
+            onPress={handleRefresh}
+          >
+            <Text className="text-gray-900 dark:text-white font-semibold">
+              Refresh Status
+            </Text>
+          </TouchableOpacity>
+          <Text className="text-sm text-gray-500 dark:text-gray-400 text-center mt-6">
+            If this takes more than a few minutes, please contact support
+          </Text>
         </View>
       </View>
     );

@@ -11,6 +11,7 @@ import {
   getDocs,
   writeBatch,
   increment,
+  onSnapshot,
 } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from '../config/firebase';
 import { UserData } from '../contexts/AuthContext';
@@ -107,6 +108,9 @@ export const getUserDocument = async (uid: string): Promise<UserData> => {
       monthlyResetDate: data.monthlyResetDate,
       createdAt: data.createdAt,
       lastLogin: data.lastLogin,
+      faxNumber: data.faxNumber || undefined,
+      faxNumberAssignedAt: data.faxNumberAssignedAt || undefined,
+      unreadFaxCount: data.unreadFaxCount || 0,
     };
   } catch (error) {
     console.error('Error getting user document:', error);
@@ -348,6 +352,49 @@ export const deleteUserAccount = async (uid: string): Promise<void> => {
     console.error('Error deleting user account:', error);
     throw new Error('Failed to delete account');
   }
+};
+
+/**
+ * Subscribe to real-time updates for user data
+ * Returns an unsubscribe function
+ */
+export const subscribeToUserData = (
+  uid: string,
+  callback: (userData: UserData) => void
+): (() => void) => {
+  const firestore = ensureFirestore();
+  
+  const userDocRef = doc(firestore, 'users', uid);
+  
+  const unsubscribe = onSnapshot(
+    userDocRef,
+    (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        const userData: UserData = {
+          uid,
+          email: data.email || null,
+          displayName: data.displayName || null,
+          photoURL: data.photoURL || null,
+          subscriptionTier: data.subscriptionTier || 'free',
+          faxesRemaining: data.faxesRemaining || 0,
+          creditsRemaining: data.creditsRemaining || 0,
+          monthlyResetDate: data.monthlyResetDate,
+          createdAt: data.createdAt,
+          lastLogin: data.lastLogin,
+          faxNumber: data.faxNumber || undefined,
+          faxNumberAssignedAt: data.faxNumberAssignedAt || undefined,
+          unreadFaxCount: data.unreadFaxCount || 0,
+        };
+        callback(userData);
+      }
+    },
+    (error) => {
+      console.error('Error in user data subscription:', error);
+    }
+  );
+  
+  return unsubscribe;
 };
 
 // Helper function to calculate next month's date

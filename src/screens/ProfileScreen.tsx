@@ -152,6 +152,52 @@ export default function ProfileScreen({ navigation }: Props) {
           )}
         </View>
 
+        {/* Fax Number for Pro Users */}
+        {userData.subscriptionTier === 'pro' && (
+          <View className="bg-white px-6 py-6 mt-4 border-b border-gray-200">
+            <Text className="text-lg font-semibold text-gray-900 mb-4">
+              Your Fax Number
+            </Text>
+            
+            {userData.faxNumber ? (
+              <View className="bg-blue-50 rounded-xl p-4 flex-row items-center justify-between">
+                <View className="flex-row items-center flex-1">
+                  <View className="w-12 h-12 bg-blue-100 rounded-full items-center justify-center mr-3">
+                    <Ionicons name="call" size={24} color="#2563eb" />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-sm text-gray-600 mb-1">Dedicated Number</Text>
+                    <Text className="text-xl font-bold text-blue-600">
+                      {userData.faxNumber}
+                    </Text>
+                  </View>
+                </View>
+                <TouchableOpacity 
+                  className="bg-blue-600 rounded-lg px-4 py-2"
+                  onPress={() => {
+                    // Copy to clipboard functionality could be added here
+                    Alert.alert('Fax Number', userData.faxNumber || '');
+                  }}
+                >
+                  <Ionicons name="copy-outline" size={20} color="white" />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View className="bg-yellow-50 rounded-xl p-4 flex-row items-center">
+                <Ionicons name="time-outline" size={24} color="#f59e0b" />
+                <View className="flex-1 ml-3">
+                  <Text className="text-sm font-semibold text-yellow-800 mb-1">
+                    Number Being Provisioned
+                  </Text>
+                  <Text className="text-xs text-yellow-700">
+                    Your dedicated fax number is being set up. This usually takes just a few moments.
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>
+        )}
+
         {/* Account Info */}
         <View className="bg-white px-6 py-6 mt-4">
           <Text className="text-lg font-semibold text-gray-900 mb-4">

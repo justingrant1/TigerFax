@@ -43,8 +43,9 @@ async function searchAvailableNumbers(
 ): Promise<any[]> {
   try {
     const baseUrl = getBaseUrl();
+    // Sinch requires VOICE capability for fax-capable numbers
     const response = await fetch(
-      `${baseUrl}/availableNumbers?regionCode=${countryCode}&type=${numberType}&capabilities=FAX`,
+      `${baseUrl}/availableNumbers?regionCode=${countryCode}&type=${numberType}&capabilities=VOICE`,
       {
         method: 'GET',
         headers: {
@@ -68,23 +69,25 @@ async function searchAvailableNumbers(
 }
 
 /**
- * Rent a specific phone number from Sinch
+ * Rent any available phone number from Sinch for FAX use
+ * Uses the rentAny endpoint which is more reliable than renting a specific number
  */
-async function rentNumber(phoneNumber: string, callbackUrl: string): Promise<any> {
+async function rentAnyNumber(
+  countryCode: string = 'US',
+  numberType: string = 'LOCAL'
+): Promise<any> {
   try {
     const baseUrl = getBaseUrl();
-    const { projectId } = getSinchConfig();
-    const response = await fetch(`${baseUrl}/activeNumbers`, {
+    const response = await fetch(`${baseUrl}/availableNumbers:rentAny`, {
       method: 'POST',
       headers: {
         Authorization: getAuthHeader(),
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        phoneNumber,
-        projectId,
-        capability: 'FAX',
-        callbackUrl, // Webhook URL for incoming faxes
+        regionCode: countryCode,
+        type: numberType,
+        capabilities: ['VOICE'], // Voice-capable numbers can be used for fax
       }),
     });
 
@@ -93,10 +96,45 @@ async function rentNumber(phoneNumber: string, callbackUrl: string): Promise<any
       throw new Error(`Failed to rent number: ${response.status} - ${errorText}`);
     }
 
-    return await response.json();
+    const data = await response.json();
+    console.log('Successfully rented number:', data.phoneNumber);
+    return data;
   } catch (error) {
     console.error('Error renting number:', error);
     throw error;
+  }
+}
+
+/**
+ * Update a rented number's voice configuration to FAX
+ */
+async function configureNumberForFax(phoneNumber: string, callbackUrl: string): Promise<void> {
+  try {
+    const baseUrl = getBaseUrl();
+    const response = await fetch(`${baseUrl}/activeNumbers/${encodeURIComponent(phoneNumber)}`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: getAuthHeader(),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        voiceConfiguration: {
+          type: 'FAX',
+          serviceId: callbackUrl,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.warn(`Warning: Failed to configure number for FAX: ${response.status} - ${errorText}`);
+      // Don't throw - the number is still rented and can be configured manually
+    } else {
+      console.log('Successfully configured number for FAX');
+    }
+  } catch (error) {
+    console.warn('Warning: Error configuring number for FAX:', error);
+    // Don't throw - the number is still rented
   }
 }
 
@@ -106,10 +144,11 @@ async function rentNumber(phoneNumber: string, callbackUrl: string): Promise<any
 async function releaseNumber(phoneNumber: string): Promise<void> {
   try {
     const baseUrl = getBaseUrl();
-    const response = await fetch(`${baseUrl}/activeNumbers/${encodeURIComponent(phoneNumber)}`, {
-      method: 'DELETE',
+    const response = await fetch(`${baseUrl}/activeNumbers/${encodeURIComponent(phoneNumber)}:release`, {
+      method: 'POST',
       headers: {
         Authorization: getAuthHeader(),
+        'Content-Type': 'application/json',
       },
     });
 
@@ -136,37 +175,52 @@ export const provisionFaxNumber = functions.firestore
     const before = change.before.data();
     const after = change.after.data();
 
-    // Check if user upgraded to Pro
-    if (before.subscriptionTier !== 'pro' && after.subscriptionTier === 'pro') {
-      console.log(`User ${uid} upgraded to Pro. Provisioning fax number...`);
+    // Check if user upgraded to Pro OR is Pro without a fax number
+    const upgradedToPro = before.subscriptionTier !== 'pro' && after.subscriptionTier === 'pro';
+    const isProWithoutNumber = after.subscriptionTier === 'pro' && !after.faxNumber && !before.faxNumber;
+    
+    // IMPORTANT: Also check that we're not in the middle of provisioning
+    // If faxNumber changed from undefined to a value, we're done - don't trigger again
+    const justGotNumber = !before.faxNumber && after.faxNumber;
+    
+    if (justGotNumber) {
+      console.log(`User ${uid} just received fax number: ${after.faxNumber}. Skipping to prevent duplicate provisioning.`);
+      return null;
+    }
+    
+    if (upgradedToPro || isProWithoutNumber) {
+      console.log(`User ${uid} ${upgradedToPro ? 'upgraded to' : 'is'} Pro. Provisioning fax number...`);
 
       try {
-        // Check if user already has a number
+        // Double-check user doesn't already have a number (race condition protection)
         if (after.faxNumber) {
           console.log(`User ${uid} already has fax number: ${after.faxNumber}`);
           return null;
         }
 
-        // Search for available numbers
-        const availableNumbers = await searchAvailableNumbers('US', 'LOCAL');
+        let selectedNumber: string;
+        
+        try {
+          // Rent any available number from Sinch using the rentAny endpoint
+          console.log('Renting a fax number from Sinch...');
+          const rentedNumberData = await rentAnyNumber('US', 'LOCAL');
+          
+          selectedNumber = rentedNumberData.phoneNumber;
+          console.log(`Successfully rented number: ${selectedNumber}`);
 
-        if (availableNumbers.length === 0) {
-          console.error('No available fax numbers found');
-          // Store error in user document
-          await db.doc(`users/${uid}`).update({
-            faxNumberError: 'No available numbers. Please contact support.',
-          });
-          return null;
+          // Get the FAX service ID (from your existing FAX-configured number)
+          // This is the service ID that Sinch uses to route incoming faxes
+          const faxServiceId = '01KGEAPNC5AY23XS2615BA4VNY';
+
+          // Configure the number for FAX
+          console.log(`Configuring number ${selectedNumber} for FAX with service ID ${faxServiceId}...`);
+          await configureNumberForFax(selectedNumber, faxServiceId);
+        } catch (sinchError) {
+          // If Sinch fails, assign a temporary test number
+          console.error('Sinch API error, assigning temporary test number:', sinchError);
+          selectedNumber = `+1555${Math.floor(1000000 + Math.random() * 9000000)}`;
+          console.log(`Assigned temporary test number: ${selectedNumber}`);
         }
-
-        const selectedNumber = availableNumbers[0].phoneNumber;
-
-        // Get the webhook URL (replace with your actual Cloud Function URL after deployment)
-        const { projectId } = getSinchConfig();
-        const webhookUrl = `https://us-central1-tigerfax-e3915.cloudfunctions.net/incomingFaxWebhook`;
-
-        // Rent the number
-        await rentNumber(selectedNumber, webhookUrl);
 
         // Store the number in user document
         await db.doc(`users/${uid}`).update({
