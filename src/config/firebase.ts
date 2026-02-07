@@ -3,6 +3,7 @@ import { Auth, getAuth, initializeAuth } from 'firebase/auth';
 // @ts-ignore - getReactNativePersistence is available in the RN bundle
 import { getReactNativePersistence } from 'firebase/auth';
 import { Firestore, getFirestore } from 'firebase/firestore';
+import { FirebaseStorage, getStorage } from 'firebase/storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
@@ -28,6 +29,7 @@ export const isFirebaseConfigured = Boolean(
 let app: FirebaseApp | null = null;
 let auth: Auth | null = null;
 let db: Firestore | null = null;
+let storage: FirebaseStorage | null = null;
 
 if (isFirebaseConfigured) {
   // Initialize Firebase app (only once)
@@ -50,6 +52,9 @@ if (isFirebaseConfigured) {
 
   // Initialize Firestore
   db = getFirestore(app);
+  
+  // Initialize Storage
+  storage = getStorage(app);
 } else {
   console.warn(
     'Firebase is not configured. Please add your Firebase credentials in the ENV tab:\n' +
@@ -62,4 +67,4 @@ if (isFirebaseConfigured) {
   );
 }
 
-export { app, auth, db };
+export { app, auth, db, storage };

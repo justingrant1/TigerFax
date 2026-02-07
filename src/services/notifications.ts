@@ -150,6 +150,54 @@ export function addNotificationResponseListener(
 }
 
 /**
+ * Get Expo push token for remote notifications
+ */
+export async function getExpoPushToken(): Promise<string | null> {
+  try {
+    // Check if we have permission
+    const { status } = await Notifications.getPermissionsAsync();
+    if (status !== 'granted') {
+      console.log('Push notification permissions not granted');
+      return null;
+    }
+
+    // Get the Expo push token
+    const tokenData = await Notifications.getExpoPushTokenAsync({
+      projectId: 'aba9ca9a-65dd-4fb1-b11f-8a05b467dd2a', // From app.json
+    });
+
+    console.log('Expo push token:', tokenData.data);
+    return tokenData.data;
+  } catch (error) {
+    console.error('Error getting Expo push token:', error);
+    return null;
+  }
+}
+
+/**
+ * Get device push token (FCM for Android, APNs for iOS)
+ */
+export async function getDevicePushToken(): Promise<string | null> {
+  try {
+    // Check if we have permission
+    const { status } = await Notifications.getPermissionsAsync();
+    if (status !== 'granted') {
+      console.log('Push notification permissions not granted');
+      return null;
+    }
+
+    // Get the device-specific push token
+    const tokenData = await Notifications.getDevicePushTokenAsync();
+    
+    console.log('Device push token:', tokenData.data);
+    return tokenData.data;
+  } catch (error) {
+    console.error('Error getting device push token:', error);
+    return null;
+  }
+}
+
+/**
  * Initialize notifications on app start
  */
 export async function initializeNotifications() {

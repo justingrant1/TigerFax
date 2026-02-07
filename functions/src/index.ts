@@ -10,6 +10,7 @@ if (!admin.apps.length) {
 export { incomingFaxWebhook, handleIncomingFaxWebhook } from "./incomingFaxWebhook";
 export { provisionFaxNumber, releaseFaxNumber } from "./provisioning";
 export { sendFaxReceivedNotification } from "./notifications";
+export { fixInboxIssue } from "./fixInboxIssue";
 
 // Import the shared handler
 import { handleIncomingFaxWebhook } from "./incomingFaxWebhook";

@@ -11,7 +11,7 @@
     "ios": {
       "icon": "./assets/icon.png",
       "bundleIdentifier": "com.tigerfax.app",
-      "buildNumber": "6",
+      "buildNumber": "8",
       "supportsTablet": true,
       "usesAppleSignIn": true,
       "infoPlist": {
@@ -30,7 +30,14 @@
       "edgeToEdgeEnabled": true
     },
     "plugins": [
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#3B82F6"
+        }
+      ]
     ],
     "web": {
       "bundler": "metro"

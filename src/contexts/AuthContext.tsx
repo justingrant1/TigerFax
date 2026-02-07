@@ -12,8 +12,10 @@ import {
 } from 'firebase/auth';
 import { Platform } from 'react-native';
 import * as Crypto from 'expo-crypto';
-import { auth, isFirebaseConfigured } from '../config/firebase';
+import { auth, isFirebaseConfigured, db } from '../config/firebase';
 import { createUserDocument, getUserDocument, subscribeToUserData } from '../services/firestore';
+import { doc, updateDoc } from 'firebase/firestore';
+import { getExpoPushToken, requestNotificationPermissions } from '../services/notifications';
 
 // Apple auth is only available in published iOS builds, not in Expo Go or Vibecode preview
 // We'll check availability at runtime before attempting to use it
@@ -84,6 +86,43 @@ export const useAuth = () => {
   return context;
 };
 
+/**
+ * Register push notification token for the user
+ */
+const registerPushToken = async (uid: string) => {
+  try {
+    // Request notification permissions
+    const hasPermission = await requestNotificationPermissions();
+    
+    if (!hasPermission) {
+      console.log('Push notification permissions not granted');
+      return;
+    }
+
+    // Get the Expo push token
+    const pushToken = await getExpoPushToken();
+    
+    if (!pushToken) {
+      console.log('Failed to get push token');
+      return;
+    }
+
+    // Save token to Firestore
+    if (db && isFirebaseConfigured) {
+      const userRef = doc(db, 'users', uid);
+      await updateDoc(userRef, {
+        fcmToken: pushToken,
+        fcmTokenUpdatedAt: new Date().toISOString(),
+      });
+      
+      console.log('Push token registered successfully:', pushToken);
+    }
+  } catch (error) {
+    console.error('Error registering push token:', error);
+    // Don't throw - push notifications are not critical for app functionality
+  }
+};
+
 interface AuthProviderProps {
   children: ReactNode;
 }
@@ -129,6 +168,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         userDataUnsubscribe = subscribeToUserData(firebaseUser.uid, (data) => {
           setUserData(data);
         });
+
+        // Register push notification token
+        registerPushToken(firebaseUser.uid);
       } else {
         // User is signed out
         setUserData(null);

@@ -14,7 +14,8 @@ import {
   onSnapshot,
   Unsubscribe,
 } from 'firebase/firestore';
-import { db, isFirebaseConfigured } from '../config/firebase';
+import { ref, getDownloadURL } from 'firebase/storage';
+import { db, storage, isFirebaseConfigured } from '../config/firebase';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
 
@@ -41,6 +42,23 @@ const ensureFirestore = () => {
 };
 
 /**
+ * Helper to get download URL from storage path
+ */
+const getDownloadURLFromPath = async (storagePath: string): Promise<string> => {
+  if (!storage) {
+    throw new Error('Firebase Storage is not configured');
+  }
+  
+  try {
+    const storageRef = ref(storage, storagePath);
+    return await getDownloadURL(storageRef);
+  } catch (error) {
+    console.error('Error getting download URL:', error);
+    throw error;
+  }
+};
+
+/**
  * Get received faxes for user
  */
 export const getReceivedFaxes = async (
@@ -59,10 +77,30 @@ export const getReceivedFaxes = async (
     
     const snapshot = await getDocs(q);
     
-    return snapshot.docs.map((docSnap) => ({
-      faxId: docSnap.id,
-      ...docSnap.data(),
-    })) as ReceivedFax[];
+    const faxes = await Promise.all(
+      snapshot.docs.map(async (docSnap) => {
+        const data = docSnap.data();
+        let documentUrl = data.documentUrl;
+        
+        // If documentUrl is empty but storagePath exists, generate download URL
+        if (!documentUrl && data.storagePath) {
+          try {
+            documentUrl = await getDownloadURLFromPath(data.storagePath);
+          } catch (error) {
+            console.error(`Failed to get download URL for fax ${docSnap.id}:`, error);
+            documentUrl = ''; // Keep empty if we can't generate URL
+          }
+        }
+        
+        return {
+          faxId: docSnap.id,
+          ...data,
+          documentUrl,
+        } as ReceivedFax;
+      })
+    );
+    
+    return faxes;
   } catch (error) {
     console.error('Error getting received faxes:', error);
     throw error;
@@ -83,11 +121,30 @@ export const subscribeToInbox = (
   
   return onSnapshot(
     q,
-    (snapshot) => {
-      const faxes = snapshot.docs.map((docSnap) => ({
-        faxId: docSnap.id,
-        ...docSnap.data(),
-      })) as ReceivedFax[];
+    async (snapshot) => {
+      // Generate download URLs for faxes that need them
+      const faxes = await Promise.all(
+        snapshot.docs.map(async (docSnap) => {
+          const data = docSnap.data();
+          let documentUrl = data.documentUrl;
+          
+          // If documentUrl is empty but storagePath exists, generate download URL
+          if (!documentUrl && data.storagePath) {
+            try {
+              documentUrl = await getDownloadURLFromPath(data.storagePath);
+            } catch (error) {
+              console.error(`Failed to get download URL for fax ${docSnap.id}:`, error);
+              documentUrl = ''; // Keep empty if we can't generate URL
+            }
+          }
+          
+          return {
+            faxId: docSnap.id,
+            ...data,
+            documentUrl,
+          } as ReceivedFax;
+        })
+      );
       
       callback(faxes);
     },
