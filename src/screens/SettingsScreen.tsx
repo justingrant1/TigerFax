@@ -10,6 +10,8 @@ import * as Application from 'expo-application';
 type RootStackParamList = {
   Settings: undefined;
   Profile: undefined;
+  Subscription: undefined;
+  HelpCenter: undefined;
 };
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Settings'>;
@@ -19,6 +21,8 @@ export default function SettingsScreen({ navigation }: Props) {
   const { theme, setTheme } = useTheme();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [faxQuality, setFaxQuality] = useState<'standard' | 'high' | 'fine'>('high');
+  const [defaultFilter, setDefaultFilter] = useState<'color' | 'bw' | 'document' | 'photo'>('document');
 
   const handleDeleteAccount = () => {
     Alert.alert(
@@ -139,15 +143,70 @@ export default function SettingsScreen({ navigation }: Props) {
           <SettingButton
             icon="document-text"
             title="Fax Quality"
-            subtitle="High (recommended)"
-            onPress={() => Alert.alert('Coming Soon', 'Quality settings will be available soon')}
+            subtitle={faxQuality === 'standard' ? 'Standard' : faxQuality === 'high' ? 'High (recommended)' : 'Fine (best quality)'}
+            onPress={() => {
+              Alert.alert(
+                'Fax Quality',
+                'Select the quality for outgoing faxes',
+                [
+                  {
+                    text: 'Standard',
+                    onPress: () => setFaxQuality('standard'),
+                  },
+                  {
+                    text: 'High (recommended)',
+                    onPress: () => setFaxQuality('high'),
+                  },
+                  {
+                    text: 'Fine (best quality)',
+                    onPress: () => setFaxQuality('fine'),
+                  },
+                  {
+                    text: 'Cancel',
+                    style: 'cancel',
+                  },
+                ]
+              );
+            }}
           />
 
           <SettingButton
             icon="color-palette"
             title="Default Filter"
-            subtitle="Document (Black & White)"
-            onPress={() => Alert.alert('Coming Soon', 'Filter settings will be available soon')}
+            subtitle={
+              defaultFilter === 'color' ? 'Color' :
+              defaultFilter === 'bw' ? 'Black & White' :
+              defaultFilter === 'document' ? 'Document (Black & White)' :
+              'Photo'
+            }
+            onPress={() => {
+              Alert.alert(
+                'Default Filter',
+                'Select the default filter for scanned documents',
+                [
+                  {
+                    text: 'Color',
+                    onPress: () => setDefaultFilter('color'),
+                  },
+                  {
+                    text: 'Black & White',
+                    onPress: () => setDefaultFilter('bw'),
+                  },
+                  {
+                    text: 'Document (recommended)',
+                    onPress: () => setDefaultFilter('document'),
+                  },
+                  {
+                    text: 'Photo',
+                    onPress: () => setDefaultFilter('photo'),
+                  },
+                  {
+                    text: 'Cancel',
+                    style: 'cancel',
+                  },
+                ]
+              );
+            }}
           />
         </View>
 
@@ -165,7 +224,7 @@ export default function SettingsScreen({ navigation }: Props) {
             icon="card"
             title="Subscription"
             subtitle="Manage your plan"
-            onPress={() => Alert.alert('Coming Soon', 'Subscription management coming soon')}
+            onPress={() => navigation.navigate('Subscription')}
           />
 
           <SettingButton
@@ -183,7 +242,7 @@ export default function SettingsScreen({ navigation }: Props) {
           <SettingButton
             icon="help-circle"
             title="Help Center"
-            onPress={() => Alert.alert('Coming Soon', 'Help center coming soon')}
+            onPress={() => navigation.navigate('HelpCenter')}
           />
 
           <SettingButton

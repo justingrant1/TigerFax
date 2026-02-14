@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, Image, Platform, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, Image, Platform, Alert, Linking } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { LoadingSpinner } from '../components/LoadingState';
 import { InlineError } from '../components/ErrorMessage';
+import { Container } from '../components/Container';
 
 // Check if Apple Auth is available (only in published iOS builds)
 let AppleAuthentication: typeof import('expo-apple-authentication') | null = null;
@@ -85,7 +86,7 @@ export default function WelcomeScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView className="flex-1 bg-white">
-      <View className="flex-1 px-6 justify-center">
+      <Container maxWidth={500} className="flex-1 justify-center">
         {/* Logo/App Name */}
         <View className="items-center mb-12">
           <View className="w-24 h-24 bg-blue-600 rounded-3xl items-center justify-center mb-4">
@@ -157,12 +158,25 @@ export default function WelcomeScreen({ navigation }: Props) {
         </View>
 
         {/* Terms */}
-        <Text className="text-xs text-gray-500 text-center mt-8">
-          By continuing, you agree to our{' '}
-          <Text className="text-blue-600">Terms of Service</Text> and{' '}
-          <Text className="text-blue-600">Privacy Policy</Text>
-        </Text>
-      </View>
+        <View className="mt-8">
+          <Text className="text-xs text-gray-500 text-center">
+            By continuing, you agree to our{' '}
+            <Text 
+              className="text-blue-600"
+              onPress={() => Linking.openURL('https://tigerfax.com/terms')}
+            >
+              Terms of Service
+            </Text>
+            {' '}and{' '}
+            <Text 
+              className="text-blue-600"
+              onPress={() => Linking.openURL('https://tigerfax.com/privacy')}
+            >
+              Privacy Policy
+            </Text>
+          </Text>
+        </View>
+      </Container>
     </SafeAreaView>
   );
 }

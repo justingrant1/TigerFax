@@ -152,4 +152,3 @@ firebase functions:log --only incomingFaxWebhook
 
 Current rules require `request.auth != null`, but Cloud Functions use service account credentials which may not satisfy this condition in the same way as client SDK requests.
 
-Update the rules to explicitly allow writes to the `receivedFaxes` path, then redeploy and test.

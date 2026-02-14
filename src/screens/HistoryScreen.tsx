@@ -9,6 +9,7 @@ import { RootStackParamList } from '../navigation/AppNavigator';
 import StatusIndicator from '../components/StatusIndicator';
 import { shareFaxHistory } from '../utils/export';
 import * as Haptics from 'expo-haptics';
+import { Container } from '../components/Container';
 
 type HistoryScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Main'>;
 
@@ -139,8 +140,9 @@ export default function HistoryScreen() {
       </View>
 
       <ScrollView className="flex-1">
+        <Container>
         {faxHistory.length === 0 ? (
-          <View className="flex-1 items-center justify-center px-6 py-20">
+          <View className="flex-1 items-center justify-center py-20">
             <Ionicons name="document-text-outline" size={64} color="#D1D5DB" />
             <Text className="text-xl font-semibold text-gray-900 mb-2 mt-4">
               No Faxes Yet
@@ -150,7 +152,7 @@ export default function HistoryScreen() {
             </Text>
           </View>
         ) : (
-          <View className="px-6 py-4">
+          <View className="py-4">
             {faxHistory.map((fax) => (
               <Pressable
                 key={fax.id}
@@ -198,6 +200,7 @@ export default function HistoryScreen() {
             ))}
           </View>
         )}
+        </Container>
       </ScrollView>
     </View>
   );

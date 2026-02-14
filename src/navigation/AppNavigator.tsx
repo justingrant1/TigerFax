@@ -23,6 +23,7 @@ import UsageScreen from '../screens/UsageScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import SubscriptionScreen from '../screens/SubscriptionScreen';
+import HelpCenterScreen from '../screens/HelpCenterScreen';
 import { InboxScreen } from '../screens/InboxScreen';
 
 export type AuthStackParamList = {
@@ -43,6 +44,7 @@ export type RootStackParamList = {
   Profile: undefined;
   Settings: undefined;
   Subscription: undefined;
+  HelpCenter: undefined;
 };
 
 export type TabParamList = {
@@ -184,6 +186,11 @@ function MainAppNavigator() {
       <Stack.Screen 
         name="Subscription" 
         component={SubscriptionScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen 
+        name="HelpCenter" 
+        component={HelpCenterScreen}
         options={{ headerShown: false }}
       />
     </Stack.Navigator>

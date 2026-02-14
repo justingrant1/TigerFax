@@ -36,7 +36,7 @@ export default function DocumentScanScreen() {
           onPress={requestPermission}
           className="bg-blue-500 rounded-xl px-6 py-3 active:bg-blue-600"
         >
-          <Text className="text-white font-semibold">Grant Permission</Text>
+          <Text className="text-white font-semibold">Continue</Text>
         </Pressable>
       </View>
     );

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Linking } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -201,7 +201,10 @@ export default function SubscriptionScreen({ navigation }: Props) {
               
               <View className="p-6">
                 <Text className="text-2xl font-bold text-gray-900 mb-1">
-                  Pro Yearly
+                  TigerFax Pro Yearly
+                </Text>
+                <Text className="text-sm text-gray-600 mb-2">
+                  12 months subscription
                 </Text>
                 <View className="flex-row items-baseline mb-4">
                   <Text className="text-4xl font-bold text-blue-600">
@@ -247,7 +250,10 @@ export default function SubscriptionScreen({ navigation }: Props) {
             <View className="bg-white rounded-2xl border border-gray-300">
               <View className="p-6">
                 <Text className="text-2xl font-bold text-gray-900 mb-1">
-                  Pro Monthly
+                  TigerFax Pro Monthly
+                </Text>
+                <Text className="text-sm text-gray-600 mb-2">
+                  1 month subscription
                 </Text>
                 <View className="flex-row items-baseline mb-4">
                   <Text className="text-4xl font-bold text-gray-900">
@@ -335,10 +341,10 @@ export default function SubscriptionScreen({ navigation }: Props) {
           </Text>
           
           <View className="flex-row justify-center mt-3 space-x-4">
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => Linking.openURL('https://tigerfax.com/terms')}>
               <Text className="text-xs text-blue-600">Terms of Service</Text>
             </TouchableOpacity>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => Linking.openURL('https://tigerfax.com/privacy')}>
               <Text className="text-xs text-blue-600">Privacy Policy</Text>
             </TouchableOpacity>
           </View>

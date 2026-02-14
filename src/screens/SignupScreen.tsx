@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Linking } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { LoadingSpinner } from '../components/LoadingState';
 import { InlineError } from '../components/ErrorMessage';
+import { Container } from '../components/Container';
 
 type RootStackParamList = {
   Welcome: undefined;
@@ -69,7 +70,7 @@ export default function SignupScreen({ navigation }: Props) {
         className="flex-1"
       >
         <ScrollView className="flex-1" keyboardShouldPersistTaps="handled">
-          <View className="flex-1 px-6">
+          <Container maxWidth={500}>
             {/* Header */}
             <View className="mt-8 mb-8">
               <TouchableOpacity
@@ -192,6 +193,26 @@ export default function SignupScreen({ navigation }: Props) {
               </View>
             </View>
 
+            {/* Terms Agreement */}
+            <View className="mb-6">
+              <Text className="text-xs text-gray-500 text-center">
+                By creating an account, you agree to our{' '}
+                <Text 
+                  className="text-blue-600"
+                  onPress={() => Linking.openURL('https://tigerfax.com/terms')}
+                >
+                  Terms of Service
+                </Text>
+                {' '}and{' '}
+                <Text 
+                  className="text-blue-600"
+                  onPress={() => Linking.openURL('https://tigerfax.com/privacy')}
+                >
+                  Privacy Policy
+                </Text>
+              </Text>
+            </View>
+
             {/* Sign Up Button */}
             <TouchableOpacity
               onPress={handleSignup}
@@ -215,7 +236,7 @@ export default function SignupScreen({ navigation }: Props) {
                 <Text className="text-blue-600 font-semibold">Sign In</Text>
               </TouchableOpacity>
             </View>
-          </View>
+          </Container>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
