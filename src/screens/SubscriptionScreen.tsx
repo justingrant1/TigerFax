@@ -26,7 +26,7 @@ export default function SubscriptionScreen({ navigation }: Props) {
   const [purchasing, setPurchasing] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [offeringsError, setOfferingsError] = useState<string | null>(null);
-  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('yearly');
+  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('monthly');
   const [packages, setPackages] = useState<{
     monthly?: PurchasesPackage;
     yearly?: PurchasesPackage;

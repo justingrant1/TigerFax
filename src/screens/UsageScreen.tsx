@@ -11,7 +11,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useFaxStore } from '../state/fax-store';
 import { format, startOfMonth, endOfMonth, subMonths, isWithinInterval } from 'date-fns';
 
-const COST_PER_PAGE = 0.10; // $0.10 per page
+const COST_PER_PAGE = 0.99; // $0.99 per page
 
 export default function UsageScreen() {
   const insets = useSafeAreaInsets();
@@ -251,8 +251,7 @@ export default function UsageScreen() {
             <View className="flex-1">
               <Text className="text-yellow-900 font-semibold mb-1">Cost Estimates</Text>
               <Text className="text-yellow-800 text-sm">
-                These are estimated costs based on ${COST_PER_PAGE.toFixed(2)} per page. 
-                Actual costs may vary based on your Sinch Fax API plan and usage.
+                Costs shown are based on the pay-per-page rate of ${COST_PER_PAGE.toFixed(2)}/page for free and credits users. Pro subscribers have unlimited pages included in their subscription.
               </Text>
             </View>
           </View>

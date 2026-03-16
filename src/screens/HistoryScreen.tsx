@@ -19,6 +19,8 @@ import { shareFaxHistory } from '../utils/export';
 import { getStatusStyle } from '../utils/status-styles';
 import * as Haptics from 'expo-haptics';
 import { Container } from '../components/Container';
+import { useAuth } from '../contexts/AuthContext';
+import { TouchableOpacity } from 'react-native';
 
 type HistoryScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Main'>;
 
@@ -26,7 +28,11 @@ export default function HistoryScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<HistoryScreenNavigationProp>();
   const { faxHistory, clearHistory } = useFaxStore();
+  const { userData, user } = useAuth();
   const [isExporting, setIsExporting] = useState(false);
+
+  const isPro = userData?.subscriptionTier === 'pro';
+  const profileInitial = (userData?.displayName?.charAt(0) || user?.email?.charAt(0) || 'U').toUpperCase();
 
   const handleClearHistory = () => {
     Alert.alert(
@@ -117,15 +123,29 @@ export default function HistoryScreen() {
         <View className="px-6 pt-4">
           <View className="flex-row items-center justify-between mb-2">
             <Text className="text-3xl font-bold text-gray-900">Fax History</Text>
-            {faxHistory.length > 0 && (
-              <Pressable
-                onPress={showOverflowMenu}
-                disabled={isExporting}
-                className="bg-gray-100 rounded-full w-10 h-10 items-center justify-center active:bg-gray-200"
+            <View className="flex-row items-center space-x-2">
+              {faxHistory.length > 0 && (
+                <Pressable
+                  onPress={showOverflowMenu}
+                  disabled={isExporting}
+                  className="bg-gray-100 rounded-full w-10 h-10 items-center justify-center active:bg-gray-200"
+                >
+                  <Ionicons name="ellipsis-horizontal" size={20} color="#374151" />
+                </Pressable>
+              )}
+              <TouchableOpacity
+                onPress={() => navigation.navigate('Profile')}
+                className={`w-10 h-10 rounded-full items-center justify-center ${isPro ? 'bg-blue-600' : 'bg-gray-400'}`}
+                activeOpacity={0.8}
               >
-                <Ionicons name="ellipsis-horizontal" size={20} color="#374151" />
-              </Pressable>
-            )}
+                <Text className="text-white font-bold text-base">{profileInitial}</Text>
+                {isPro && (
+                  <View className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-yellow-400 rounded-full items-center justify-center border border-white">
+                    <Text style={{ fontSize: 8, lineHeight: 10 }}>⭐</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
           <Text className="text-gray-600">Track your sent and pending faxes</Text>
         </View>

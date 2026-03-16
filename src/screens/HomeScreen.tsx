@@ -14,6 +14,24 @@ import { validatePhoneNumber } from '../utils/phone-validation';
 import { useAuth } from '../contexts/AuthContext';
 import { FREE_PAGES_LIFETIME } from '../utils/status-styles';
 
+/** Reusable profile avatar button — shows user initial, blue for Pro */
+function ProfileAvatarButton({ onPress, initial, isPro }: { onPress: () => void; initial: string; isPro: boolean }) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      className={`w-10 h-10 rounded-full items-center justify-center ${isPro ? 'bg-blue-600' : 'bg-gray-400'}`}
+      activeOpacity={0.8}
+    >
+      <Text className="text-white font-bold text-base">{initial}</Text>
+      {isPro && (
+        <View className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-yellow-400 rounded-full items-center justify-center border border-white">
+          <Text style={{ fontSize: 8, lineHeight: 10 }}>⭐</Text>
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+}
+
 // Safe haptics wrapper - some devices don't support haptics
 const safeHaptics = {
   impact: async (style: Haptics.ImpactFeedbackStyle) => {
@@ -37,7 +55,7 @@ type HomeScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'M
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<HomeScreenNavigationProp>();
-  const { userData } = useAuth();
+  const { userData, user } = useAuth();
   const { currentFax, setRecipient, sendFax, clearCurrentFax } = useFaxStore();
   const [showContactPicker, setShowContactPicker] = useState(false);
   const [showBatchFax, setShowBatchFax] = useState(false);
@@ -46,6 +64,7 @@ export default function HomeScreen() {
   const isPro = userData?.subscriptionTier === 'pro';
   const freePagesLeft = userData?.freePagesRemaining ?? 0;
   const paidCredits = userData?.creditsRemaining ?? 0;
+  const profileInitial = (userData?.displayName?.charAt(0) || user?.email?.charAt(0) || 'U').toUpperCase();
 
   const canProceed = currentFax.recipient.trim() && currentFax.documents.length > 0 && !phoneError;
 
@@ -101,9 +120,16 @@ export default function HomeScreen() {
   return (
     <View className="flex-1 bg-white">
       <View style={{ paddingTop: insets.top }} className="bg-white border-b border-gray-200 pb-4">
-        <View className="px-6 pt-4">
-          <Text className="text-3xl font-bold text-gray-900">Send Fax</Text>
-          <Text className="text-gray-600 mt-1">Scan, upload and send documents securely</Text>
+        <View className="px-6 pt-4 flex-row items-center justify-between">
+          <View className="flex-1">
+            <Text className="text-3xl font-bold text-gray-900">Send Fax</Text>
+            <Text className="text-gray-600 mt-1">Scan, upload and send documents securely</Text>
+          </View>
+          <ProfileAvatarButton
+            onPress={() => navigation.navigate('Profile')}
+            initial={profileInitial}
+            isPro={isPro}
+          />
         </View>
       </View>
 

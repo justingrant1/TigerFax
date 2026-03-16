@@ -30,12 +30,14 @@ import {
 import { LoadingSpinner } from '../components/LoadingState';
 import ErrorMessage from '../components/ErrorMessage';
 import { RootStackParamList } from '../navigation/AppNavigator';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type InboxNavProp = NativeStackNavigationProp<RootStackParamList>;
 
 export const InboxScreen: React.FC = () => {
   const { user, userData, refreshUserData } = useAuth();
   const navigation = useNavigation<InboxNavProp>();
+  const insets = useSafeAreaInsets();
   const [faxes, setFaxes] = useState<ReceivedFax[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -56,6 +58,7 @@ export const InboxScreen: React.FC = () => {
 
   const isPro = userData?.subscriptionTier === 'pro';
   const faxNumber = userData?.faxNumber;
+  const profileInitial = (userData?.displayName?.charAt(0) || user?.email?.charAt(0) || 'U').toUpperCase();
 
   const loadFaxes = useCallback(async () => {
     if (!user || !isPro) return;
@@ -213,10 +216,35 @@ export const InboxScreen: React.FC = () => {
     );
   };
 
+  // Shared header component
+  const InboxHeader = () => (
+    <View style={{ paddingTop: insets.top }} className="bg-white border-b border-gray-200 pb-4">
+      <View className="px-6 pt-4 flex-row items-center justify-between">
+        <View className="flex-1">
+          <Text className="text-3xl font-bold text-gray-900">Inbox</Text>
+          <Text className="text-gray-600 mt-1">Received faxes</Text>
+        </View>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('Profile')}
+          className={`w-10 h-10 rounded-full items-center justify-center ${isPro ? 'bg-blue-600' : 'bg-gray-400'}`}
+          activeOpacity={0.8}
+        >
+          <Text className="text-white font-bold text-base">{profileInitial}</Text>
+          {isPro && (
+            <View className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-yellow-400 rounded-full items-center justify-center border border-white">
+              <Text style={{ fontSize: 8, lineHeight: 10 }}>⭐</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
   // Upgrade prompt for non-Pro users
   if (!isPro) {
     return (
       <View className="flex-1 bg-gray-50">
+        <InboxHeader />
         <View className="flex-1 justify-center items-center p-8">
           <View className="w-24 h-24 bg-blue-100 rounded-full items-center justify-center mb-6">
             <Ionicons name="mail" size={48} color="#2563EB" />
@@ -242,6 +270,7 @@ export const InboxScreen: React.FC = () => {
   if (isPro && !faxNumber) {
     return (
       <View className="flex-1 bg-gray-50">
+        <InboxHeader />
         <View className="flex-1 justify-center items-center p-8">
           <View className="w-24 h-24 bg-yellow-100 rounded-full items-center justify-center mb-6">
             <Ionicons name="time" size={48} color="#F59E0B" />
@@ -285,6 +314,7 @@ export const InboxScreen: React.FC = () => {
 
   return (
     <View className="flex-1 bg-gray-50">
+      <InboxHeader />
       {/* Fax number banner — tap to copy */}
       {faxNumber && (
         <TouchableOpacity
