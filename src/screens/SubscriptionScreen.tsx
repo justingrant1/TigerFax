@@ -1,5 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Linking } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  Alert,
+  ActivityIndicator,
+  Linking,
+  Animated,
+} from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,11 +16,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { getOfferings, purchasePackage, restorePurchases } from '../services/purchases';
 import { handlePurchaseSuccess, getTierFeatures } from '../utils/subscription-utils';
 import { PurchasesPackage } from 'react-native-purchases';
-
-type RootStackParamList = {
-  Subscription: undefined;
-  Profile: undefined;
-};
+import { RootStackParamList } from '../navigation/AppNavigator';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Subscription'>;
 
@@ -21,10 +26,21 @@ export default function SubscriptionScreen({ navigation }: Props) {
   const [purchasing, setPurchasing] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [offeringsError, setOfferingsError] = useState<string | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('yearly');
   const [packages, setPackages] = useState<{
     monthly?: PurchasesPackage;
     yearly?: PurchasesPackage;
   }>({});
+
+  // Fade-in animation
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 400,
+      useNativeDriver: true,
+    }).start();
+  }, []);
 
   useEffect(() => {
     loadOfferings();
@@ -36,11 +52,6 @@ export default function SubscriptionScreen({ navigation }: Props) {
       setOfferingsError(null);
       const offerings = await getOfferings();
 
-      // Debug logging
-      console.log('📦 Raw offerings:', JSON.stringify(offerings, null, 2));
-      console.log('📦 Current offering:', offerings?.current);
-      console.log('📦 All offering keys:', offerings ? Object.keys(offerings.all || {}) : 'none');
-
       if (!offerings?.current) {
         setPackages({});
         setOfferingsError('No subscription offerings available right now.');
@@ -48,17 +59,12 @@ export default function SubscriptionScreen({ navigation }: Props) {
       }
 
       const availablePackages = offerings.current.availablePackages ?? [];
-      console.log('📦 Available packages:', availablePackages.length, availablePackages.map(p => p.identifier));
       const monthlyIdentifiers = ['$rc_monthly', 'monthly', 'pro_monthly'];
       const yearlyIdentifiers = ['$rc_annual', '$rc_yearly', 'annual', 'yearly', 'pro_yearly'];
       const monthlyProductIds = ['tigerfax_pro_monthly', 'tigerfax.pro.monthly'];
       const yearlyProductIds = ['tigerfax_pro_yearly', 'tigerfax.pro.yearly'];
 
-      const findPackage = (
-        identifiers: string[],
-        productIds: string[],
-        types: string[]
-      ) =>
+      const findPackage = (identifiers: string[], productIds: string[], types: string[]) =>
         availablePackages.find((pkg) => {
           const packageType = String(pkg.packageType ?? '').toLowerCase();
           return (
@@ -86,17 +92,13 @@ export default function SubscriptionScreen({ navigation }: Props) {
 
   const handlePurchase = async (pkg: PurchasesPackage) => {
     if (!user) return;
-    
     try {
       setPurchasing(true);
       const customerInfo = await purchasePackage(pkg);
-      
-      // Sync with Firestore and show success
       const result = await handlePurchaseSuccess(user.uid, customerInfo);
       await refreshUserData();
-      
-      Alert.alert('Success!', result.message, [
-        { text: 'OK', onPress: () => navigation.goBack() }
+      Alert.alert('Welcome to Pro! 🎉', result.message, [
+        { text: 'Get Started', onPress: () => navigation.goBack() },
       ]);
     } catch (error: any) {
       if (error.message !== 'Purchase was cancelled') {
@@ -112,11 +114,7 @@ export default function SubscriptionScreen({ navigation }: Props) {
       setRestoring(true);
       await restorePurchases();
       await refreshUserData();
-      
-      Alert.alert(
-        'Purchases Restored',
-        'Your subscription has been restored successfully!'
-      );
+      Alert.alert('Purchases Restored', 'Your subscription has been restored successfully!');
     } catch (error: any) {
       Alert.alert('Restore Failed', error.message || 'No purchases to restore');
     } finally {
@@ -133,197 +131,187 @@ export default function SubscriptionScreen({ navigation }: Props) {
     );
   }
 
-  const freeFeatures = getTierFeatures('free');
   const proFeatures = getTierFeatures('pro');
   const hasPaidPlans = Boolean(packages.monthly || packages.yearly);
+  const isPro = userData?.subscriptionTier === 'pro';
+  const activePackage = selectedPlan === 'yearly' ? packages.yearly : packages.monthly;
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
-      <ScrollView>
+      <Animated.ScrollView style={{ opacity: fadeAnim }}>
         {/* Header */}
-        <View className="px-6 py-6 bg-white">
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            className="mb-4"
-          >
+        <View className="px-6 pt-6 pb-4 bg-white border-b border-gray-100">
+          <TouchableOpacity onPress={() => navigation.goBack()} className="mb-5">
             <Ionicons name="arrow-back" size={24} color="#374151" />
           </TouchableOpacity>
-          
-          <Text className="text-3xl font-bold text-gray-900 mb-2">
-            Upgrade to Pro
-          </Text>
-          <Text className="text-base text-gray-600">
-            Send unlimited faxes and unlock premium features
-          </Text>
+
+          {isPro ? (
+            <View className="items-center py-4">
+              <View className="w-20 h-20 bg-blue-100 rounded-full items-center justify-center mb-4">
+                <Ionicons name="star" size={40} color="#2563EB" />
+              </View>
+              <Text className="text-2xl font-bold text-gray-900 mb-2">You're on Pro!</Text>
+              <Text className="text-gray-500 text-center">
+                You have access to all premium features.
+              </Text>
+            </View>
+          ) : (
+            <>
+              <Text className="text-3xl font-bold text-gray-900 mb-2">Upgrade to Pro</Text>
+              <Text className="text-base text-gray-500">
+                Unlimited faxes, dedicated number, and more. First 3 pages free, then $0.99/page without Pro.
+              </Text>
+            </>
+          )}
         </View>
 
-        {/* Pricing Cards */}
-        <View className="px-6 py-6 space-y-4">
-          {/* Current Plan Badge */}
-          {userData?.subscriptionTier !== 'free' && (
-            <View className="bg-green-50 border border-green-200 rounded-xl p-4 mb-2">
-              <View className="flex-row items-center">
-                <Ionicons name="checkmark-circle" size={24} color="#10b981" />
-                <Text className="ml-2 text-green-700 font-semibold">
-                  You're on the {userData?.subscriptionTier === 'pro' ? 'Pro' : 'Credits'} plan
-                </Text>
-              </View>
-            </View>
-          )}
+        {/* Error Banner */}
+        {!hasPaidPlans && (
+          <View className="mx-6 mt-4 bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+            <Text className="text-yellow-800 font-semibold mb-1">
+              Subscription options unavailable
+            </Text>
+            <Text className="text-yellow-700 text-sm">
+              {offeringsError || 'Please try again in a moment.'}
+            </Text>
+            <TouchableOpacity
+              onPress={loadOfferings}
+              className="mt-3 bg-yellow-600 py-2 rounded-lg"
+            >
+              <Text className="text-white text-center font-semibold">Retry</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
-          {!hasPaidPlans && (
-            <View className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-2">
-              <Text className="text-yellow-800 font-semibold">
-                Subscription options unavailable
-              </Text>
-              <Text className="text-yellow-700 mt-1">
-                {offeringsError || 'Please try again in a moment.'}
-              </Text>
+        {/* Plan Toggle */}
+        {hasPaidPlans && !isPro && (
+          <View className="mx-6 mt-6">
+            <View className="bg-gray-100 rounded-xl p-1 flex-row">
               <TouchableOpacity
-                onPress={loadOfferings}
-                className="mt-3 bg-yellow-600 py-2 rounded-lg"
+                className={`flex-1 py-3 rounded-lg items-center ${
+                  selectedPlan === 'monthly' ? 'bg-white shadow-sm' : ''
+                }`}
+                onPress={() => setSelectedPlan('monthly')}
               >
-                <Text className="text-white text-center font-semibold">
-                  Retry
+                <Text
+                  className={`font-semibold text-sm ${
+                    selectedPlan === 'monthly' ? 'text-gray-900' : 'text-gray-500'
+                  }`}
+                >
+                  Monthly
                 </Text>
               </TouchableOpacity>
+              <TouchableOpacity
+                className={`flex-1 py-3 rounded-lg items-center ${
+                  selectedPlan === 'yearly' ? 'bg-white shadow-sm' : ''
+                }`}
+                onPress={() => setSelectedPlan('yearly')}
+              >
+                <Text
+                  className={`font-semibold text-sm ${
+                    selectedPlan === 'yearly' ? 'text-gray-900' : 'text-gray-500'
+                  }`}
+                >
+                  Yearly
+                </Text>
+                {packages.yearly && (
+                  <View className="bg-green-500 rounded-full px-2 py-0.5 mt-1">
+                    <Text className="text-white text-xs font-bold">Save 16%</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
             </View>
-          )}
+          </View>
+        )}
 
-          {/* Yearly Plan - Best Value */}
-          {packages.yearly && (
-            <View className="bg-white rounded-2xl border-2 border-blue-600 overflow-hidden">
-              <View className="bg-blue-600 px-4 py-2">
-                <Text className="text-white font-bold text-center">
-                  ⭐ BEST VALUE - Save 16%
+        {/* Pricing Card */}
+        {hasPaidPlans && !isPro && activePackage && (
+          <View className="mx-6 mt-4 bg-white rounded-2xl border-2 border-blue-600 overflow-hidden shadow-sm">
+            {selectedPlan === 'yearly' && (
+              <View className="bg-blue-600 py-2">
+                <Text className="text-white font-bold text-center text-sm">
+                  ⭐ BEST VALUE
                 </Text>
               </View>
-              
-              <View className="p-6">
-                <Text className="text-2xl font-bold text-gray-900 mb-1">
-                  TigerFax Pro Yearly
+            )}
+
+            <View className="p-6">
+              {/* Price */}
+              <View className="items-center mb-6">
+                <Text className="text-5xl font-bold text-gray-900">
+                  {activePackage.product.priceString}
                 </Text>
-                <Text className="text-sm text-gray-600 mb-2">
-                  12 months subscription
+                <Text className="text-gray-500 mt-1">
+                  per {selectedPlan === 'yearly' ? 'year' : 'month'}
                 </Text>
-                <View className="flex-row items-baseline mb-4">
-                  <Text className="text-4xl font-bold text-blue-600">
-                    {packages.yearly.product.priceString}
+                {selectedPlan === 'yearly' && (
+                  <Text className="text-green-600 text-sm font-medium mt-1">
+                    ≈ {packages.monthly?.product.priceString
+                      ? `${packages.monthly.product.priceString}/mo if billed monthly`
+                      : 'Save vs monthly'}
                   </Text>
-                  <Text className="text-gray-600 ml-2">/year</Text>
-                </View>
-                
-                <TouchableOpacity
-                  onPress={() => handlePurchase(packages.yearly!)}
-                  disabled={purchasing || userData?.subscriptionTier === 'pro'}
-                  className={`${
-                    userData?.subscriptionTier === 'pro'
-                      ? 'bg-gray-300'
-                      : 'bg-blue-600'
-                  } py-4 rounded-xl mb-4`}
-                >
-                  {purchasing ? (
-                    <ActivityIndicator color="white" />
-                  ) : (
-                    <Text className="text-white font-semibold text-center text-lg">
-                      {userData?.subscriptionTier === 'pro' ? 'Current Plan' : 'Subscribe Yearly'}
-                    </Text>
-                  )}
-                </TouchableOpacity>
+                )}
+              </View>
 
-                <Text className="text-sm text-gray-600 text-center mb-4">
-                  Just $12.49/month when billed annually
-                </Text>
+              {/* CTA Button */}
+              <TouchableOpacity
+                onPress={() => handlePurchase(activePackage)}
+                disabled={purchasing}
+                className="bg-blue-600 py-4 rounded-xl mb-6"
+                style={{ opacity: purchasing ? 0.7 : 1 }}
+              >
+                {purchasing ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <Text className="text-white font-bold text-center text-lg">
+                    {selectedPlan === 'yearly' ? 'Subscribe Yearly' : 'Subscribe Monthly'}
+                  </Text>
+                )}
+              </TouchableOpacity>
 
+              {/* Features */}
+              <View className="space-y-3">
                 {proFeatures.map((feature, index) => (
-                  <View key={index} className="flex-row items-center mb-2">
-                    <Ionicons name="checkmark-circle" size={20} color="#2563eb" />
-                    <Text className="ml-2 text-gray-700">{feature}</Text>
+                  <View key={index} className="flex-row items-center">
+                    <View className="w-6 h-6 bg-blue-100 rounded-full items-center justify-center mr-3">
+                      <Ionicons name="checkmark" size={14} color="#2563EB" />
+                    </View>
+                    <Text className="text-gray-700 flex-1">{feature}</Text>
                   </View>
                 ))}
               </View>
             </View>
-          )}
+          </View>
+        )}
 
-          {/* Monthly Plan */}
-          {packages.monthly && (
-            <View className="bg-white rounded-2xl border border-gray-300">
-              <View className="p-6">
-                <Text className="text-2xl font-bold text-gray-900 mb-1">
-                  TigerFax Pro Monthly
-                </Text>
-                <Text className="text-sm text-gray-600 mb-2">
-                  1 month subscription
-                </Text>
-                <View className="flex-row items-baseline mb-4">
-                  <Text className="text-4xl font-bold text-gray-900">
-                    {packages.monthly.product.priceString}
-                  </Text>
-                  <Text className="text-gray-600 ml-2">/month</Text>
-                </View>
-                
-                <TouchableOpacity
-                  onPress={() => handlePurchase(packages.monthly!)}
-                  disabled={purchasing || userData?.subscriptionTier === 'pro'}
-                  className={`${
-                    userData?.subscriptionTier === 'pro'
-                      ? 'bg-gray-300'
-                      : 'bg-gray-900'
-                  } py-4 rounded-xl mb-4`}
-                >
-                  {purchasing ? (
-                    <ActivityIndicator color="white" />
-                  ) : (
-                    <Text className="text-white font-semibold text-center text-lg">
-                      {userData?.subscriptionTier === 'pro' ? 'Current Plan' : 'Subscribe Monthly'}
-                    </Text>
-                  )}
-                </TouchableOpacity>
-
-                <Text className="text-sm text-gray-600 mb-4">
-                  All Pro features included
-                </Text>
-              </View>
-            </View>
-          )}
-
-          {/* Free Plan */}
-          <View className="bg-white rounded-2xl border border-gray-300">
-            <View className="p-6">
-              <Text className="text-2xl font-bold text-gray-900 mb-1">
-                Free Plan
-              </Text>
-              <View className="flex-row items-baseline mb-4">
-                <Text className="text-4xl font-bold text-gray-900">
-                  $0
-                </Text>
-                <Text className="text-gray-600 ml-2">/month</Text>
-              </View>
-              
+        {/* Free Plan Comparison */}
+        {!isPro && (
+          <View className="mx-6 mt-4 bg-white rounded-2xl border border-gray-200 p-6">
+            <View className="flex-row items-center justify-between mb-4">
+              <Text className="text-lg font-semibold text-gray-900">Free Plan</Text>
               {userData?.subscriptionTier === 'free' && (
-                <View className="bg-gray-100 py-4 rounded-xl mb-4">
-                  <Text className="text-gray-700 font-semibold text-center">
-                    Current Plan
-                  </Text>
+                <View className="bg-gray-100 px-3 py-1 rounded-full">
+                  <Text className="text-gray-600 text-xs font-semibold">Current</Text>
                 </View>
               )}
-
-              {freeFeatures.map((feature, index) => (
-                <View key={index} className="flex-row items-center mb-2">
-                  <Ionicons name="checkmark-circle" size={20} color="#6b7280" />
-                  <Text className="ml-2 text-gray-700">{feature}</Text>
-                </View>
-              ))}
             </View>
+            {getTierFeatures('free').map((feature, index) => (
+              <View key={index} className="flex-row items-center mb-2">
+                <View className="w-6 h-6 bg-gray-100 rounded-full items-center justify-center mr-3">
+                  <Ionicons name="checkmark" size={14} color="#6B7280" />
+                </View>
+                <Text className="text-gray-600 flex-1">{feature}</Text>
+              </View>
+            ))}
           </View>
-        </View>
+        )}
 
-        {/* Restore Purchases */}
-        <View className="px-6 pb-6">
+        {/* Restore + Legal */}
+        <View className="px-6 py-6">
           <TouchableOpacity
             onPress={handleRestore}
             disabled={restoring}
-            className="py-3"
+            className="py-3 mb-4"
           >
             {restoring ? (
               <ActivityIndicator color="#2563eb" />
@@ -334,25 +322,35 @@ export default function SubscriptionScreen({ navigation }: Props) {
             )}
           </TouchableOpacity>
 
-          {/* Legal */}
-          <Text className="text-xs text-gray-500 text-center mt-4">
-            Subscription automatically renews unless auto-renew is turned off at least 24 hours before the end of the current period. 
-            Payment charged to App Store account at confirmation of purchase.
+          <Text className="text-xs text-gray-400 text-center leading-5">
+            Subscription automatically renews unless cancelled at least 24 hours before the end of
+            the current period. Payment charged to your App Store account at confirmation of
+            purchase.
           </Text>
-          
-          <View className="flex-row justify-center mt-3 flex-wrap gap-x-4 gap-y-2">
-            <TouchableOpacity onPress={() => Linking.openURL('https://www.apple.com/legal/internet-services/itunes/dev/stdeula/')}>
-              <Text className="text-xs text-blue-600">Terms of Use (EULA)</Text>
+
+          <View className="flex-row justify-center mt-4 space-x-4">
+            <TouchableOpacity
+              onPress={() =>
+                Linking.openURL(
+                  'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/'
+                )
+              }
+            >
+              <Text className="text-xs text-blue-600">EULA</Text>
             </TouchableOpacity>
+            <Text className="text-xs text-gray-300">•</Text>
             <TouchableOpacity onPress={() => Linking.openURL('https://tigerfax.com/terms')}>
-              <Text className="text-xs text-blue-600">Terms of Service</Text>
+              <Text className="text-xs text-blue-600">Terms</Text>
             </TouchableOpacity>
+            <Text className="text-xs text-gray-300">•</Text>
             <TouchableOpacity onPress={() => Linking.openURL('https://tigerfax.com/privacy')}>
-              <Text className="text-xs text-blue-600">Privacy Policy</Text>
+              <Text className="text-xs text-blue-600">Privacy</Text>
             </TouchableOpacity>
           </View>
         </View>
-      </ScrollView>
+
+        <View className="h-8" />
+      </Animated.ScrollView>
     </SafeAreaView>
   );
 }

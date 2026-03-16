@@ -12,6 +12,7 @@ import {
   writeBatch,
   increment,
   onSnapshot,
+  type UpdateData,
 } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from '../config/firebase';
 import { UserData } from '../contexts/AuthContext';
@@ -49,7 +50,8 @@ export const createUserDocument = async (
       displayName: userData.displayName,
       photoURL: userData.photoURL,
       subscriptionTier: 'free' as const,
-      faxesRemaining: 3, // Free tier gets 3 faxes per month
+      faxesRemaining: 3, // legacy field — kept for backwards compat
+      freePagesRemaining: 3, // lifetime free pages (new model: 3 free, then $0.99/page)
       creditsRemaining: 0,
       monthlyResetDate,
       createdAt: now,
@@ -103,7 +105,9 @@ export const getUserDocument = async (uid: string): Promise<UserData> => {
       displayName: data.displayName || null,
       photoURL: data.photoURL || null,
       subscriptionTier: data.subscriptionTier || 'free',
-      faxesRemaining: data.faxesRemaining || 0,
+      faxesRemaining: data.faxesRemaining ?? 0,
+      // freePagesRemaining: default to 3 for existing users who predate this field
+      freePagesRemaining: data.freePagesRemaining ?? 3,
       creditsRemaining: data.creditsRemaining || 0,
       monthlyResetDate: data.monthlyResetDate,
       createdAt: data.createdAt,
@@ -127,7 +131,7 @@ export const updateSubscriptionTier = async (
 ): Promise<void> => {
   const firestore = ensureFirestore();
   try {
-    const updates: Record<string, unknown> = {
+    const updates: UpdateData<Record<string, unknown>> = {
       subscriptionTier: tier,
       updatedAt: new Date().toISOString(),
     };
@@ -148,7 +152,11 @@ export const updateSubscriptionTier = async (
 };
 
 /**
- * Decrement faxes remaining (for free tier) or credits (for pay-per-use)
+ * Decrement usage counters when a fax is sent.
+ * - Pro: just tracks usage stats
+ * - Free: decrements freePagesRemaining (lifetime) then creditsRemaining
+ * - Credits: decrements creditsRemaining
+ * Returns false if the user has no pages/credits left (should be blocked before calling).
  */
 export const decrementFaxCount = async (
   uid: string,
@@ -160,37 +168,61 @@ export const decrementFaxCount = async (
     const userDocSnap = await getDoc(userDocRef);
     const data = userDocSnap.data();
 
-    if (!data) {
-      throw new Error('User data not found');
-    }
+    if (!data) throw new Error('User data not found');
 
     const tier = data.subscriptionTier;
 
-    // Pro users have unlimited faxes
+    // Pro users — unlimited, just track stats
     if (tier === 'pro') {
-      return true;
-    }
-
-    // Free tier users
-    if (tier === 'free') {
-      if (data.faxesRemaining <= 0) {
-        return false; // No faxes remaining
-      }
       await updateDoc(userDocRef, {
-        faxesRemaining: increment(-1),
         'usage.totalFaxesSent': increment(1),
         'usage.totalPagesSent': increment(pagesCount),
       });
       return true;
     }
 
+    // Free tier — use lifetime free pages first, then paid credits
+    if (tier === 'free') {
+      const freeLeft: number = data.freePagesRemaining ?? 0;
+      const creditsLeft: number = data.creditsRemaining ?? 0;
+
+      if (freeLeft >= pagesCount) {
+        // Fully covered by free pages
+        await updateDoc(userDocRef, {
+          freePagesRemaining: increment(-pagesCount),
+          'usage.totalFaxesSent': increment(1),
+          'usage.totalPagesSent': increment(pagesCount),
+        });
+        return true;
+      } else if (freeLeft > 0) {
+        // Partially covered by free pages, rest from credits
+        const paidPages = pagesCount - freeLeft;
+        if (creditsLeft < paidPages) return false;
+        await updateDoc(userDocRef, {
+          freePagesRemaining: 0,
+          creditsRemaining: increment(-paidPages),
+          'usage.totalFaxesSent': increment(1),
+          'usage.totalPagesSent': increment(pagesCount),
+        });
+        return true;
+      } else {
+        // No free pages left — use credits only
+        if (creditsLeft < pagesCount) return false;
+        await updateDoc(userDocRef, {
+          creditsRemaining: increment(-pagesCount),
+          'usage.totalFaxesSent': increment(1),
+          'usage.totalPagesSent': increment(pagesCount),
+        });
+        return true;
+      }
+    }
+
     // Credits tier users
     if (tier === 'credits') {
-      if (data.creditsRemaining <= 0) {
-        return false; // No credits remaining
-      }
+      const creditsLeft: number = data.creditsRemaining ?? 0;
+      if (creditsLeft < pagesCount) return false;
       await updateDoc(userDocRef, {
-        creditsRemaining: increment(-1),
+        creditsRemaining: increment(-pagesCount),
         'usage.totalFaxesSent': increment(1),
         'usage.totalPagesSent': increment(pagesCount),
       });
@@ -205,20 +237,29 @@ export const decrementFaxCount = async (
 };
 
 /**
- * Add credits to user account (for pay-per-use purchases)
+ * Add page credits to user account (consumable IAP — $0.99/page).
+ * Each purchased page credit is stored in creditsRemaining.
  */
-export const addCredits = async (uid: string, credits: number): Promise<void> => {
+export const addPageCredits = async (uid: string, pages: number): Promise<void> => {
   const firestore = ensureFirestore();
   try {
     await updateDoc(doc(firestore, 'users', uid), {
-      creditsRemaining: increment(credits),
+      creditsRemaining: increment(pages),
+      subscriptionTier: 'credits',
       updatedAt: new Date().toISOString(),
     });
-    console.log(`Added ${credits} credits to user ${uid}`);
+    console.log(`Added ${pages} page credit(s) to user ${uid}`);
   } catch (error) {
-    console.error('Error adding credits:', error);
-    throw new Error('Failed to add credits');
+    console.error('Error adding page credits:', error);
+    throw new Error('Failed to add page credits');
   }
+};
+
+/**
+ * Add credits to user account (for pay-per-use purchases) — legacy alias
+ */
+export const addCredits = async (uid: string, credits: number): Promise<void> => {
+  return addPageCredits(uid, credits);
 };
 
 /**
@@ -264,7 +305,7 @@ export const updateUserSettings = async (
 ): Promise<void> => {
   const firestore = ensureFirestore();
   try {
-    const updates: Record<string, unknown> = {
+    const updates: UpdateData<Record<string, unknown>> = {
       updatedAt: new Date().toISOString(),
     };
 
@@ -377,7 +418,8 @@ export const subscribeToUserData = (
           displayName: data.displayName || null,
           photoURL: data.photoURL || null,
           subscriptionTier: data.subscriptionTier || 'free',
-          faxesRemaining: data.faxesRemaining || 0,
+          faxesRemaining: data.faxesRemaining ?? 0,
+          freePagesRemaining: data.freePagesRemaining ?? 3,
           creditsRemaining: data.creditsRemaining || 0,
           monthlyResetDate: data.monthlyResetDate,
           createdAt: data.createdAt,

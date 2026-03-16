@@ -3,7 +3,7 @@
     "name": "TigerFax",
     "slug": "vibecode",
     "scheme": "vibecode",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -11,7 +11,7 @@
     "ios": {
       "icon": "./assets/icon.png",
       "bundleIdentifier": "com.tigerfax.app",
-      "buildNumber": "9",
+      "buildNumber": "10",
       "supportsTablet": true,
       "usesAppleSignIn": true,
       "infoPlist": {

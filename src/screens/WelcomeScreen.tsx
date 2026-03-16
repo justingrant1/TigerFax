@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, Image, Platform, Alert, Linking } from 'react-native';
+import React, { useEffect, useState, useRef } from 'react';
+import { View, Text, TouchableOpacity, Platform, Alert, Linking, Animated } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,6 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { LoadingSpinner } from '../components/LoadingState';
 import { InlineError } from '../components/ErrorMessage';
 import { Container } from '../components/Container';
+import { AuthStackParamList } from '../navigation/AppNavigator';
 
 // Check if Apple Auth is available (only in published iOS builds)
 let AppleAuthentication: typeof import('expo-apple-authentication') | null = null;
@@ -18,20 +19,32 @@ if (Platform.OS === 'ios') {
   }
 }
 
-type RootStackParamList = {
-  Welcome: undefined;
-  Login: undefined;
-  Signup: undefined;
-  Home: undefined;
-};
-
-type Props = NativeStackScreenProps<RootStackParamList, 'Welcome'>;
+type Props = NativeStackScreenProps<AuthStackParamList, 'Welcome'>;
 
 export default function WelcomeScreen({ navigation }: Props) {
   const { signInWithApple, loading } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [appleLoading, setAppleLoading] = useState(false);
   const [isAppleAuthAvailable, setIsAppleAuthAvailable] = useState(false);
+
+  // Entrance animation: fade in + slide up
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(32)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
 
   // Check if Apple Sign-In is available (only in published iOS builds)
   useEffect(() => {
@@ -87,15 +100,26 @@ export default function WelcomeScreen({ navigation }: Props) {
   return (
     <SafeAreaView className="flex-1 bg-white">
       <Container maxWidth={500} className="flex-1 justify-center">
+        <Animated.View
+          style={{
+            opacity: fadeAnim,
+            transform: [{ translateY: slideAnim }],
+          }}
+        >
         {/* Logo/App Name */}
         <View className="items-center mb-12">
           <View className="w-24 h-24 bg-blue-600 rounded-3xl items-center justify-center mb-4">
             <Ionicons name="document-text" size={48} color="white" />
           </View>
           <Text className="text-4xl font-bold text-gray-900 mb-2">TigerFax</Text>
-          <Text className="text-lg text-gray-600 text-center">
+          <Text className="text-lg text-gray-600 text-center mb-3">
             Send faxes instantly from your phone
           </Text>
+          <View className="bg-green-50 border border-green-200 rounded-full px-4 py-1.5">
+            <Text className="text-green-700 text-sm font-medium text-center">
+              🎁 3 free pages · No credit card needed
+            </Text>
+          </View>
         </View>
 
         {/* Features */}
@@ -161,21 +185,25 @@ export default function WelcomeScreen({ navigation }: Props) {
         <View className="mt-8">
           <Text className="text-xs text-gray-500 text-center">
             By continuing, you agree to our{' '}
-            <Text 
+            <Text
               className="text-blue-600"
-              onPress={() => Linking.openURL('https://www.apple.com/legal/internet-services/itunes/dev/stdeula/')}
+              onPress={() =>
+                Linking.openURL(
+                  'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/'
+                )
+              }
             >
               Terms of Use (EULA)
             </Text>
             {', '}
-            <Text 
+            <Text
               className="text-blue-600"
               onPress={() => Linking.openURL('https://tigerfax.com/terms')}
             >
               Terms of Service
             </Text>
             {', and '}
-            <Text 
+            <Text
               className="text-blue-600"
               onPress={() => Linking.openURL('https://tigerfax.com/privacy')}
             >
@@ -183,6 +211,7 @@ export default function WelcomeScreen({ navigation }: Props) {
             </Text>
           </Text>
         </View>
+        </Animated.View>
       </Container>
     </SafeAreaView>
   );

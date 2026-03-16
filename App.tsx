@@ -68,15 +68,17 @@ export default function App() {
           timeoutPromise
         ]);
         
-        // Run debug checks after initialization (non-blocking)
-        setTimeout(async () => {
-          try {
-            await checkStoreKitProducts(); // Direct StoreKit check
-            await debugCheckProducts();     // Full debug check
-          } catch (error) {
-            console.error('Debug checks failed:', error);
-          }
-        }, 2000);
+        // Run debug checks after initialization (non-blocking, dev only)
+        if (__DEV__) {
+          setTimeout(async () => {
+            try {
+              await checkStoreKitProducts(); // Direct StoreKit check
+              await debugCheckProducts();     // Full debug check
+            } catch (error) {
+              console.error('Debug checks failed:', error);
+            }
+          }, 2000);
+        }
       } catch (error) {
         console.error('Failed to initialize RevenueCat:', error);
         // App continues to work without subscriptions

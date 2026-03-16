@@ -9,37 +9,35 @@ import { updateSubscriptionTier } from '../services/firestore';
 import { hasProSubscription } from '../services/purchases';
 
 /**
- * Check if user can send a fax based on their subscription and usage
+ * Check if user can send a fax based on their subscription and usage.
+ * Free users get FREE_PAGES_LIFETIME (3) pages lifetime; after that $0.99/page via IAP.
  */
 export const canSendFax = (userData: UserData, customerInfo?: CustomerInfo): {
   canSend: boolean;
   reason?: string;
+  freePagesLeft: number;
 } => {
   // Pro users have unlimited faxes
   if (userData.subscriptionTier === 'pro' || (customerInfo && hasProSubscription(customerInfo))) {
-    return { canSend: true };
+    return { canSend: true, freePagesLeft: 0 };
   }
 
-  // Credits users - check credits remaining
+  // Credits users - check page credits remaining
   if (userData.subscriptionTier === 'credits') {
     if (userData.creditsRemaining > 0) {
-      return { canSend: true };
+      return { canSend: true, freePagesLeft: 0 };
     }
-    return {
-      canSend: false,
-      reason: 'no_credits',
-    };
+    return { canSend: false, reason: 'no_credits', freePagesLeft: 0 };
   }
 
-  // Free tier - check monthly limit
-  if (userData.faxesRemaining > 0) {
-    return { canSend: true };
+  // Free tier — lifetime page allowance
+  const freePagesLeft = userData.freePagesRemaining ?? 0;
+  if (freePagesLeft > 0) {
+    return { canSend: true, freePagesLeft };
   }
 
-  return {
-    canSend: false,
-    reason: 'free_limit_reached',
-  };
+  // Free pages exhausted — user must buy page credits or upgrade
+  return { canSend: false, reason: 'free_pages_exhausted', freePagesLeft: 0 };
 };
 
 /**
@@ -50,15 +48,20 @@ export const getUpgradeMessage = (reason: string): {
   message: string;
 } => {
   switch (reason) {
+    case 'free_pages_exhausted':
+      return {
+        title: 'Free Pages Used',
+        message: "You've used your 3 free pages. Buy page credits at $0.99/page or upgrade to Pro for unlimited faxing.",
+      };
     case 'free_limit_reached':
       return {
-        title: 'Monthly Limit Reached',
-        message: "You've used all 3 free faxes this month. Upgrade to Pro for unlimited faxes or buy credits to continue.",
+        title: 'Free Pages Used',
+        message: "You've used your 3 free pages. Buy page credits at $0.99/page or upgrade to Pro for unlimited faxing.",
       };
     case 'no_credits':
       return {
-        title: 'No Credits Remaining',
-        message: 'Purchase more fax credits to continue sending, or upgrade to Pro for unlimited faxes.',
+        title: 'No Page Credits Remaining',
+        message: 'Purchase more page credits at $0.99/page to continue, or upgrade to Pro for unlimited faxes.',
       };
     case 'pro_feature':
       return {
@@ -176,7 +179,8 @@ export const getTierFeatures = (tier: 'free' | 'pro' | 'credits'): string[] => {
   switch (tier) {
     case 'free':
       return [
-        '3 faxes per month',
+        '3 free pages to start',
+        'Then $0.99 per page',
         'Basic document scanning',
         'Send to any fax number',
         'Fax history (30 days)',
@@ -193,7 +197,7 @@ export const getTierFeatures = (tier: 'free' | 'pro' | 'credits'): string[] => {
       ];
     case 'credits':
       return [
-        'Pay only for what you use',
+        '$0.99 per page — pay as you go',
         'No monthly commitment',
         'Credits never expire',
         'All free tier features',

@@ -1,33 +1,36 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, Pressable, Alert } from 'react-native';
+import { View, Text, ScrollView, Pressable, Alert, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
-import { useFaxStore, FaxJob } from '../state/fax-store';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useFaxStore } from '../state/fax-store';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import DocumentList from '../components/DocumentList';
 import StatusIndicator from '../components/StatusIndicator';
 import { shareFaxReceipt } from '../utils/export';
+import { getStatusStyle, FAX_PRICE_PER_PAGE } from '../utils/status-styles';
 import * as Haptics from 'expo-haptics';
 
 type FaxDetailRouteProp = RouteProp<RootStackParamList, 'FaxDetail'>;
+type FaxDetailNavProp = NativeStackNavigationProp<RootStackParamList>;
 
 export default function FaxDetailScreen() {
   const route = useRoute<FaxDetailRouteProp>();
-  const navigation = useNavigation();
+  const navigation = useNavigation<FaxDetailNavProp>();
   const { faxHistory } = useFaxStore();
   const [isSharing, setIsSharing] = useState(false);
-  
-  const fax = faxHistory.find(f => f.id === route.params.jobId);
+
+  const fax = faxHistory.find((f) => f.id === route.params.jobId);
 
   const handleShareReceipt = async () => {
     if (!fax) return;
-    
+
     try {
       setIsSharing(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      
+
       const success = await shareFaxReceipt(fax);
-      
+
       if (!success) {
         Alert.alert('Error', 'Failed to share fax receipt');
       }
@@ -59,51 +62,45 @@ export default function FaxDetailScreen() {
     );
   }
 
-  const getStatusColor = (status: FaxJob['status']) => {
-    switch (status) {
-      case 'sent':
-        return 'text-green-600 bg-green-100';
-      case 'sending':
-        return 'text-blue-600 bg-blue-100';
-      case 'failed':
-        return 'text-red-600 bg-red-100';
-      default:
-        return 'text-yellow-600 bg-yellow-100';
-    }
-  };
-
-  const getStatusIcon = (status: FaxJob['status']) => {
-    switch (status) {
-      case 'sent':
-        return 'checkmark-circle';
-      case 'sending':
-        return 'time';
-      case 'failed':
-        return 'alert-circle';
-      default:
-        return 'hourglass';
-    }
-  };
+  const statusStyle = getStatusStyle(fax.status);
+  const transmissionCost = (fax.totalPages * FAX_PRICE_PER_PAGE).toFixed(2);
 
   const formatDateTime = (timestamp: number) => {
     return new Date(timestamp).toLocaleString();
   };
 
   const handleResendFax = () => {
-    Alert.alert(
-      'Resend Fax',
-      'Would you like to resend this fax?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Resend', 
-          onPress: () => {
-            Alert.alert('Feature Coming Soon', 'Fax resend functionality will be available soon.');
-          }
-        }
-      ]
-    );
+    Alert.alert('Resend Fax', 'Would you like to resend this fax?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Resend',
+        onPress: () => {
+          Alert.alert(
+            'Feature Coming Soon',
+            'Fax resend functionality will be available soon.'
+          );
+        },
+      },
+    ]);
   };
+
+  const statusBorderColor =
+    fax.status === 'sent'
+      ? 'border-green-200'
+      : fax.status === 'sending'
+      ? 'border-blue-200'
+      : fax.status === 'failed'
+      ? 'border-red-200'
+      : 'border-yellow-200';
+
+  const statusBgColor =
+    fax.status === 'sent'
+      ? 'bg-green-50'
+      : fax.status === 'sending'
+      ? 'bg-blue-50'
+      : fax.status === 'failed'
+      ? 'bg-red-50'
+      : 'bg-yellow-50';
 
   return (
     <View className="flex-1 bg-white">
@@ -125,23 +122,20 @@ export default function FaxDetailScreen() {
 
         {/* Status Header */}
         <View className="mb-8">
-          <View className={`rounded-2xl p-6 ${
-            fax.status === 'sent' ? 'bg-green-50 border border-green-200' :
-            fax.status === 'sending' ? 'bg-blue-50 border border-blue-200' :
-            fax.status === 'failed' ? 'bg-red-50 border border-red-200' :
-            'bg-yellow-50 border border-yellow-200'
-          }`}>
+          <View
+            className={`rounded-2xl p-6 ${statusBgColor} border ${statusBorderColor}`}
+          >
             <View className="flex-row items-center space-x-3 mb-3">
-              <View className={`rounded-full w-12 h-12 items-center justify-center ${getStatusColor(fax.status)}`}>
+              <View
+                className={`rounded-full w-12 h-12 items-center justify-center ${statusStyle.bgClass}`}
+              >
                 <StatusIndicator status={fax.status} size={24} />
               </View>
               <View>
-                <Text className="text-xl font-bold text-gray-900 capitalize">
-                  {fax.status}
+                <Text className="text-xl font-bold text-gray-900">
+                  {statusStyle.label}
                 </Text>
-                <Text className="text-gray-600">
-                  {formatDateTime(fax.timestamp)}
-                </Text>
+                <Text className="text-gray-600">{formatDateTime(fax.timestamp)}</Text>
               </View>
             </View>
 
@@ -181,7 +175,9 @@ export default function FaxDetailScreen() {
           {/* Cover Page */}
           {fax.coverPage && (
             <View>
-              <Text className="text-lg font-semibold text-gray-900 mb-3">Cover Page</Text>
+              <Text className="text-lg font-semibold text-gray-900 mb-3">
+                Cover Page
+              </Text>
               <View className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-2">
                 <View className="flex-row">
                   <Text className="font-medium text-gray-700 w-16">To:</Text>
@@ -212,7 +208,43 @@ export default function FaxDetailScreen() {
             <Text className="text-lg font-semibold text-gray-900 mb-3">
               Documents ({fax.documents.length})
             </Text>
-            <DocumentList documents={fax.documents} readonly />
+            {fax.documents.map((doc, index) => (
+              <View
+                key={doc.id}
+                className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-2 flex-row items-center"
+              >
+                <View className="w-10 h-10 bg-blue-100 rounded-lg items-center justify-center mr-3">
+                  <Ionicons
+                    name={doc.type === 'image' ? 'image-outline' : 'document-text-outline'}
+                    size={20}
+                    color="#2563EB"
+                  />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-gray-900 font-medium text-sm" numberOfLines={1}>
+                    {doc.name || `Document ${index + 1}`}
+                  </Text>
+                  <Text className="text-gray-500 text-xs mt-0.5 capitalize">{doc.type}</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    navigation.navigate('FaxViewer', {
+                      faxId: fax.id,
+                      documentUrl: doc.uri,
+                      from: fax.recipient,
+                      receivedAt: new Date(fax.timestamp).toISOString(),
+                      pages: fax.totalPages,
+                      isInbox: false,
+                    });
+                  }}
+                  className="bg-blue-500 px-3 py-2 rounded-lg flex-row items-center ml-2"
+                >
+                  <Ionicons name="eye-outline" size={15} color="white" />
+                  <Text className="text-white text-xs font-semibold ml-1">View</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
           </View>
 
           {/* Summary */}
@@ -237,29 +269,26 @@ export default function FaxDetailScreen() {
                   {fax.coverPage ? 'Included' : 'Not included'}
                 </Text>
               </View>
+              <View className="h-px bg-gray-200" />
               <View className="flex-row justify-between">
                 <Text className="text-gray-600">Transmission Cost:</Text>
-                <Text className="text-gray-900 font-medium">
-                  ${(fax.totalPages * 0.10).toFixed(2)}
-                </Text>
+                <Text className="text-gray-900 font-semibold">${transmissionCost}</Text>
               </View>
             </View>
           </View>
         </View>
       </ScrollView>
 
-      {/* Action Button */}
+      {/* Action Button — only shown for failed faxes */}
       {fax.status === 'failed' && (
-        <View className="px-6 pb-6 border-t border-gray-200 bg-white">
+        <View className="px-6 pb-6 pt-4 border-t border-gray-200 bg-white">
           <Pressable
             onPress={handleResendFax}
             className="bg-blue-500 rounded-xl p-4 active:bg-blue-600"
           >
             <View className="flex-row items-center justify-center space-x-2">
               <Ionicons name="refresh" size={20} color="white" />
-              <Text className="text-white font-semibold text-base">
-                Resend Fax
-              </Text>
+              <Text className="text-white font-semibold text-base">Resend Fax</Text>
             </View>
           </Pressable>
         </View>

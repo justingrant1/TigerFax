@@ -7,16 +7,9 @@ import { useAuth } from '../contexts/AuthContext';
 import { LoadingSpinner } from '../components/LoadingState';
 import { InlineError } from '../components/ErrorMessage';
 import { Container } from '../components/Container';
+import { AuthStackParamList } from '../navigation/AppNavigator';
 
-type RootStackParamList = {
-  Welcome: undefined;
-  Login: undefined;
-  Signup: undefined;
-  ForgotPassword: undefined;
-  Home: undefined;
-};
-
-type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
+type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
 
 export default function LoginScreen({ navigation }: Props) {
   const { signIn } = useAuth();

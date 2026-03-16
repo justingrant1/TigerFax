@@ -40,6 +40,8 @@ export interface UserData {
   photoURL: string | null;
   subscriptionTier: 'free' | 'pro' | 'credits';
   faxesRemaining: number;
+  /** Lifetime free pages remaining (starts at 3, decrements per page sent, never resets) */
+  freePagesRemaining: number;
   creditsRemaining: number;
   monthlyResetDate: string;
   createdAt: string;
@@ -47,6 +49,7 @@ export interface UserData {
   faxNumber?: string; // Pro users get a dedicated fax number
   faxNumberAssignedAt?: string;
   unreadFaxCount?: number;
+  faxesSent?: number; // Lifetime total faxes sent
 }
 
 interface AuthContextType {

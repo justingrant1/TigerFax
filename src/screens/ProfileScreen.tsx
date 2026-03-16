@@ -1,41 +1,45 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
 import { useAuth } from '../contexts/AuthContext';
 import { LoadingSpinner } from '../components/LoadingState';
-
-type RootStackParamList = {
-  Profile: undefined;
-  Settings: undefined;
-  Subscription: undefined;
-};
+import { RootStackParamList } from '../navigation/AppNavigator';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Profile'>;
 
 export default function ProfileScreen({ navigation }: Props) {
   const { user, userData, signOut, loading } = useAuth();
+  const [copied, setCopied] = useState(false);
 
   const handleSignOut = async () => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await signOut();
-            } catch (error: any) {
-              Alert.alert('Error', error.message || 'Failed to sign out');
-            }
-          },
+    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Sign Out',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await signOut();
+          } catch (error: any) {
+            Alert.alert('Error', error.message || 'Failed to sign out');
+          }
         },
-      ]
-    );
+      },
+    ]);
+  };
+
+  const handleCopyFaxNumber = async () => {
+    if (!userData?.faxNumber) return;
+    try {
+      await Clipboard.setStringAsync(userData.faxNumber);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      Alert.alert('Error', 'Could not copy to clipboard');
+    }
   };
 
   if (loading || !userData) {
@@ -49,16 +53,30 @@ export default function ProfileScreen({ navigation }: Props) {
       case 'credits':
         return { text: 'Credits', color: 'bg-purple-600', icon: 'wallet' as const };
       default:
-        return { text: 'Free', color: 'bg-gray-600', icon: 'gift' as const };
+        return { text: 'Free', color: 'bg-gray-500', icon: 'gift' as const };
     }
   };
 
   const badge = getSubscriptionBadge();
-  const remainingFaxes = userData.subscriptionTier === 'free' 
-    ? userData.faxesRemaining || 0
-    : userData.subscriptionTier === 'credits'
-    ? userData.creditsRemaining || 0
-    : '∞';
+  // For free users show lifetime free pages left; for credits show credit balance; Pro = unlimited
+  const remainingDisplay =
+    userData.subscriptionTier === 'pro'
+      ? '∞'
+      : userData.subscriptionTier === 'credits'
+      ? userData.creditsRemaining ?? 0
+      : userData.freePagesRemaining ?? 0;
+
+  const remainingLabel =
+    userData.subscriptionTier === 'pro'
+      ? 'Unlimited'
+      : userData.subscriptionTier === 'credits'
+      ? 'Page Credits'
+      : 'Free Pages Left';
+
+  const initials =
+    userData.displayName?.charAt(0).toUpperCase() ||
+    user?.email?.charAt(0).toUpperCase() ||
+    'U';
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
@@ -69,30 +87,28 @@ export default function ProfileScreen({ navigation }: Props) {
             <Text className="text-2xl font-bold text-gray-900">Profile</Text>
             <TouchableOpacity
               onPress={() => navigation.navigate('Settings')}
-              className="w-10 h-10 items-center justify-center"
+              className="w-10 h-10 items-center justify-center bg-gray-100 rounded-full"
             >
-              <Ionicons name="settings-outline" size={24} color="#374151" />
+              <Ionicons name="settings-outline" size={22} color="#374151" />
             </TouchableOpacity>
           </View>
 
-          {/* User Info */}
+          {/* Avatar + User Info */}
           <View className="items-center">
-            <View className="w-24 h-24 bg-blue-100 rounded-full items-center justify-center mb-4">
-              <Text className="text-4xl font-bold text-blue-600">
-                {userData.displayName?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
-              </Text>
+            <View className="w-24 h-24 bg-blue-600 rounded-full items-center justify-center mb-4 shadow-sm">
+              <Text className="text-4xl font-bold text-white">{initials}</Text>
             </View>
             <Text className="text-xl font-semibold text-gray-900 mb-1">
               {userData.displayName || 'User'}
             </Text>
-            <Text className="text-base text-gray-600 mb-4">
-              {user?.email}
-            </Text>
+            <Text className="text-base text-gray-500 mb-4">{user?.email}</Text>
 
             {/* Subscription Badge */}
             <View className={`${badge.color} px-4 py-2 rounded-full flex-row items-center`}>
-              <Ionicons name={badge.icon} size={16} color="white" />
-              <Text className="text-white font-semibold ml-2">{badge.text} Plan</Text>
+              <Ionicons name={badge.icon} size={15} color="white" />
+              <Text className="text-white font-semibold ml-2 text-sm">
+                {badge.text} Plan
+              </Text>
             </View>
           </View>
         </View>
@@ -100,31 +116,25 @@ export default function ProfileScreen({ navigation }: Props) {
         {/* Usage Stats */}
         <View className="bg-white px-6 py-6 mt-4 border-b border-gray-200">
           <Text className="text-lg font-semibold text-gray-900 mb-4">
-            This Month's Usage
+            Usage Overview
           </Text>
 
           <View className="flex-row space-x-4">
-            {/* Faxes Remaining */}
+            {/* Pages / Credits Remaining */}
             <View className="flex-1 bg-blue-50 rounded-xl p-4">
               <View className="flex-row items-center justify-between mb-2">
-                <Ionicons name="send" size={24} color="#2563eb" />
-                <Text className="text-2xl font-bold text-blue-600">
-                  {remainingFaxes}
-                </Text>
+                <Ionicons name="send" size={22} color="#2563eb" />
+                <Text className="text-2xl font-bold text-blue-600">{remainingDisplay}</Text>
               </View>
-              <Text className="text-sm text-gray-600">
-                {userData.subscriptionTier === 'pro' ? 'Unlimited' : 'Remaining'}
-              </Text>
+              <Text className="text-sm text-gray-600">{remainingLabel}</Text>
             </View>
 
-            {/* Faxes Sent */}
+            {/* Faxes Sent — read from Firestore field if available */}
             <View className="flex-1 bg-green-50 rounded-xl p-4">
               <View className="flex-row items-center justify-between mb-2">
-                <Ionicons name="checkmark-circle" size={24} color="#10b981" />
+                <Ionicons name="checkmark-circle" size={22} color="#10b981" />
                 <Text className="text-2xl font-bold text-green-600">
-                  {(userData.faxesRemaining !== undefined && userData.subscriptionTier === 'free') 
-                    ? (3 - userData.faxesRemaining) 
-                    : 0}
+                  {userData.faxesSent ?? 0}
                 </Text>
               </View>
               <Text className="text-sm text-gray-600">Sent</Text>
@@ -133,7 +143,7 @@ export default function ProfileScreen({ navigation }: Props) {
 
           {/* Upgrade CTA for Free Users */}
           {userData.subscriptionTier === 'free' && (
-            <TouchableOpacity 
+            <TouchableOpacity
               className="bg-blue-600 rounded-xl py-3 mt-4 items-center"
               onPress={() => navigation.navigate('Subscription')}
             >
@@ -143,7 +153,7 @@ export default function ProfileScreen({ navigation }: Props) {
 
           {/* Manage Subscription for Pro Users */}
           {userData.subscriptionTier === 'pro' && (
-            <TouchableOpacity 
+            <TouchableOpacity
               className="bg-gray-100 rounded-xl py-3 mt-4 items-center"
               onPress={() => navigation.navigate('Subscription')}
             >
@@ -158,7 +168,7 @@ export default function ProfileScreen({ navigation }: Props) {
             <Text className="text-lg font-semibold text-gray-900 mb-4">
               Your Fax Number
             </Text>
-            
+
             {userData.faxNumber ? (
               <View className="bg-blue-50 rounded-xl p-4 flex-row items-center justify-between">
                 <View className="flex-row items-center flex-1">
@@ -166,20 +176,21 @@ export default function ProfileScreen({ navigation }: Props) {
                     <Ionicons name="call" size={24} color="#2563eb" />
                   </View>
                   <View className="flex-1">
-                    <Text className="text-sm text-gray-600 mb-1">Dedicated Number</Text>
+                    <Text className="text-sm text-gray-500 mb-1">Dedicated Number</Text>
                     <Text className="text-xl font-bold text-blue-600">
                       {userData.faxNumber}
                     </Text>
                   </View>
                 </View>
-                <TouchableOpacity 
-                  className="bg-blue-600 rounded-lg px-4 py-2"
-                  onPress={() => {
-                    // Copy to clipboard functionality could be added here
-                    Alert.alert('Fax Number', userData.faxNumber || '');
-                  }}
+                <TouchableOpacity
+                  className={`rounded-lg px-4 py-2 ${copied ? 'bg-green-500' : 'bg-blue-600'}`}
+                  onPress={handleCopyFaxNumber}
                 >
-                  <Ionicons name="copy-outline" size={20} color="white" />
+                  <Ionicons
+                    name={copied ? 'checkmark' : 'copy-outline'}
+                    size={20}
+                    color="white"
+                  />
                 </TouchableOpacity>
               </View>
             ) : (
@@ -190,7 +201,8 @@ export default function ProfileScreen({ navigation }: Props) {
                     Number Being Provisioned
                   </Text>
                   <Text className="text-xs text-yellow-700">
-                    Your dedicated fax number is being set up. This usually takes just a few moments.
+                    Your dedicated fax number is being set up. This usually takes just a few
+                    moments.
                   </Text>
                 </View>
               </View>
@@ -204,27 +216,23 @@ export default function ProfileScreen({ navigation }: Props) {
             Account Information
           </Text>
 
-          <InfoRow 
-            icon="calendar-outline" 
-            label="Member Since" 
-            value={new Date(userData.createdAt).toLocaleDateString('en-US', { 
-              month: 'long', 
-              year: 'numeric' 
-            })} 
+          <InfoRow
+            icon="calendar-outline"
+            label="Member Since"
+            value={new Date(userData.createdAt).toLocaleDateString('en-US', {
+              month: 'long',
+              year: 'numeric',
+            })}
           />
-          <InfoRow 
-            icon="mail-outline" 
-            label="Email" 
-            value={user?.email || 'Not set'} 
-          />
-          <InfoRow 
-            icon="person-outline" 
-            label="Display Name" 
-            value={userData.displayName || 'Not set'} 
+          <InfoRow icon="mail-outline" label="Email" value={user?.email || 'Not set'} />
+          <InfoRow
+            icon="person-outline"
+            label="Display Name"
+            value={userData.displayName || 'Not set'}
           />
         </View>
 
-        {/* Actions */}
+        {/* Sign Out */}
         <View className="px-6 py-6">
           <TouchableOpacity
             onPress={handleSignOut}
@@ -254,7 +262,7 @@ function InfoRow({ icon, label, value }: InfoRowProps) {
         <Ionicons name={icon} size={20} color="#6b7280" />
       </View>
       <View className="flex-1">
-        <Text className="text-sm text-gray-600">{label}</Text>
+        <Text className="text-sm text-gray-500">{label}</Text>
         <Text className="text-base text-gray-900 font-medium">{value}</Text>
       </View>
     </View>
