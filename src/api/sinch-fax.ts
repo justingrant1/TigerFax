@@ -180,85 +180,16 @@ export const sendFax = async (
       })),
     });
 
-    // Use FileSystem.uploadAsync for the first file, which handles multipart properly
-    // For single file faxes, use uploadAsync
-    if (filesToUpload.length === 1) {
-      const file = filesToUpload[0];
-
-      console.log('Uploading single file:', {
-        fileName: file.name,
-        mimeType: file.mimeType,
-        uri: file.uri,
-      });
-
-      const uploadResult = await FileSystem.uploadAsync(`${BASE_URL}/faxes`, file.uri, {
-        httpMethod: 'POST',
-        uploadType: FileSystem.FileSystemUploadType.MULTIPART,
-        fieldName: 'file',
-        mimeType: file.mimeType,
-        parameters: {
-          to: params.to,
-        },
-        headers: {
-          Authorization: getAuthHeader(),
-        },
-      });
-
-      console.log('Upload result:', uploadResult.status, uploadResult.body);
-
-      if (uploadResult.status >= 400) {
-        let errorMessage = `Sinch API Error (${uploadResult.status})`;
-
-        try {
-          const errorJson = JSON.parse(uploadResult.body);
-          if (errorJson.message) {
-            errorMessage = errorJson.message;
-          } else if (errorJson.details?.[0]?.message) {
-            errorMessage = errorJson.details[0].message;
-          }
-        } catch {
-          if (uploadResult.body) {
-            errorMessage = uploadResult.body.substring(0, 200);
-          }
-        }
-
-        const errorObj = {
-          status: uploadResult.status,
-          message: uploadResult.body,
-        };
-
-        logError('sendFax', errorObj, {
-          to: params.to,
-          documentCount: params.documents.length,
-          retryCount,
-        });
-
-        // Retry if appropriate
-        if (isRetryableError(errorObj) && retryCount < maxRetries) {
-          const delay = Math.pow(2, retryCount) * 1000;
-          console.log(`Retrying fax send in ${delay}ms (attempt ${retryCount + 1}/${maxRetries})`);
-          await new Promise((resolve) => setTimeout(resolve, delay));
-          return sendFax(params, retryCount + 1, maxRetries);
-        }
-
-        throw new Error(errorMessage);
-      }
-
-      const result: SinchFaxResponse = JSON.parse(uploadResult.body);
-      console.log('Fax sent successfully:', result);
-      return result;
+    // Determine which file to upload
+    // For multiple files, use the last (main) document and warn
+    if (filesToUpload.length > 1) {
+      console.warn('Multiple documents detected. Sending last document only. Multi-document support coming soon.');
     }
+    const file = filesToUpload.length === 1
+      ? filesToUpload[0]
+      : filesToUpload[filesToUpload.length - 1];
 
-    // For multiple files, we need to combine them or send sequentially
-    // The Sinch API may accept multiple 'file' fields in multipart
-    // Since uploadAsync only supports one file, we'll use the last (main) document
-    // and log a warning about multiple documents
-
-    console.warn('Multiple documents detected. Sending last document only. Multi-document support coming soon.');
-
-    const file = filesToUpload[filesToUpload.length - 1]; // Use the last (main) document
-
-    console.log('Uploading document:', {
+    console.log('Uploading file:', {
       fileName: file.name,
       mimeType: file.mimeType,
       uri: file.uri,
@@ -306,6 +237,7 @@ export const sendFax = async (
         retryCount,
       });
 
+      // Only retry on 5xx server errors or network timeouts — never on 4xx client errors
       if (isRetryableError(errorObj) && retryCount < maxRetries) {
         const delay = Math.pow(2, retryCount) * 1000;
         console.log(`Retrying fax send in ${delay}ms (attempt ${retryCount + 1}/${maxRetries})`);
@@ -313,7 +245,12 @@ export const sendFax = async (
         return sendFax(params, retryCount + 1, maxRetries);
       }
 
-      throw new Error(errorMessage);
+      // Attach the HTTP status to the Error so the outer catch and callers can
+      // inspect it (e.g. to show a 422-specific user message without retrying)
+      const httpError = Object.assign(new Error(errorMessage), {
+        status: uploadResult.status,
+      });
+      throw httpError;
     }
 
     const result: SinchFaxResponse = JSON.parse(uploadResult.body);
@@ -321,7 +258,8 @@ export const sendFax = async (
     return result;
 
   } catch (error) {
-    // If it's a network error and we can retry
+    // Only retry on retryable errors (5xx / network) — 4xx errors (including 422)
+    // are not retryable and must surface immediately to the caller
     if (isRetryableError(error) && retryCount < maxRetries) {
       const delay = Math.pow(2, retryCount) * 1000;
       console.log(`Retrying fax send after error in ${delay}ms (attempt ${retryCount + 1}/${maxRetries})`);

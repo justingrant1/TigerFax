@@ -74,6 +74,17 @@ export const parseError = (error: any): AppError => {
     };
   }
 
+  // Validation error — bad request data (e.g. invalid fax number)
+  // Never retry: the same bad request will always fail
+  if (error.status === 422) {
+    return {
+      code: ErrorCode.INVALID_PHONE_NUMBER,
+      message: 'Invalid fax number. Please check the number and try again.',
+      originalError: error,
+      retryable: false,
+    };
+  }
+
   // Rate limiting
   if (error.status === 429) {
     return {
@@ -84,7 +95,7 @@ export const parseError = (error: any): AppError => {
     };
   }
 
-  // General API errors
+  // General 4xx client errors — do not retry
   if (error.status >= 400 && error.status < 500) {
     return {
       code: ErrorCode.API_ERROR,
@@ -177,6 +188,9 @@ export const formatErrorForDisplay = (error: any): {
       break;
     case ErrorCode.RATE_LIMIT_ERROR:
       title = 'Too Many Requests';
+      break;
+    case ErrorCode.INVALID_PHONE_NUMBER:
+      title = 'Invalid Fax Number';
       break;
     case ErrorCode.FAX_SEND_ERROR:
       title = 'Fax Send Error';

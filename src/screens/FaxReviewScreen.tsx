@@ -5,6 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { useFaxStore } from '../state/fax-store';
 import DocumentList from '../components/DocumentList';
+import { formatErrorForDisplay } from '../utils/error-handler';
 
 export default function FaxReviewScreen() {
   const navigation = useNavigation();
@@ -35,7 +36,8 @@ export default function FaxReviewScreen() {
       );
     } catch (error) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Error', 'Failed to send fax. Please try again.');
+      const { title, message } = formatErrorForDisplay(error);
+      Alert.alert(title, message);
     } finally {
       setIsSending(false);
     }

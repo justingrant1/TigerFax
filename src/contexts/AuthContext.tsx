@@ -153,8 +153,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
 
     let userDataUnsubscribe: (() => void) | null = null;
+    
+    // Safety timeout: if auth doesn't resolve in 10 seconds, stop loading
+    // This prevents the app from appearing frozen on iPad or other devices
+    const safetyTimeout = setTimeout(() => {
+      console.warn('Auth initialization timeout - proceeding without auth');
+      setLoading(false);
+    }, 10000);
 
     const authUnsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      // Clear safety timeout since auth resolved
+      clearTimeout(safetyTimeout);
+      
       setUser(firebaseUser);
 
       // Clean up previous user data listener
@@ -180,6 +190,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     });
 
     return () => {
+      clearTimeout(safetyTimeout);
       authUnsubscribe();
       if (userDataUnsubscribe) {
         userDataUnsubscribe();

@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { View, Text, ActivityIndicator } from 'react-native';
+import { View, Text, ActivityIndicator, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 interface LoadingStateProps {
@@ -92,12 +92,12 @@ export function EmptyState({ icon, title, message, action }: EmptyStateProps) {
       </Text>
       
       {action && (
-        <button
-          onClick={action.onPress}
+        <Pressable
+          onPress={action.onPress}
           className="bg-blue-500 rounded-xl px-6 py-3"
         >
           <Text className="text-white font-semibold">{action.label}</Text>
-        </button>
+        </Pressable>
       )}
     </View>
   );

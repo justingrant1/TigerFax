@@ -146,11 +146,18 @@ export default function LoginScreen({ navigation }: Props) {
                 By signing in, you agree to our{' '}
                 <Text 
                   className="text-blue-600"
+                  onPress={() => Linking.openURL('https://www.apple.com/legal/internet-services/itunes/dev/stdeula/')}
+                >
+                  Terms of Use (EULA)
+                </Text>
+                {', '}
+                <Text 
+                  className="text-blue-600"
                   onPress={() => Linking.openURL('https://tigerfax.com/terms')}
                 >
                   Terms of Service
                 </Text>
-                {' '}and{' '}
+                {', and '}
                 <Text 
                   className="text-blue-600"
                   onPress={() => Linking.openURL('https://tigerfax.com/privacy')}

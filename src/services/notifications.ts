@@ -7,15 +7,21 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
 // Configure notification behavior
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+// Wrapped in try-catch to prevent module load failures on some devices
+try {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+} catch (error) {
+  console.warn('Failed to set notification handler:', error);
+  // App will continue to work without notifications
+}
 
 /**
  * Request notification permissions

@@ -12,6 +12,24 @@ import ContactPickerModal from '../components/ContactPickerModal';
 import BatchFaxModal from '../components/BatchFaxModal';
 import { validatePhoneNumber, formatPhoneNumber } from '../utils/phone-validation';
 
+// Safe haptics wrapper - some devices don't support haptics
+const safeHaptics = {
+  impact: async (style: Haptics.ImpactFeedbackStyle) => {
+    try {
+      await Haptics.impactAsync(style);
+    } catch (error) {
+      // Silently fail - haptics not critical
+    }
+  },
+  notification: async (type: Haptics.NotificationFeedbackType) => {
+    try {
+      await Haptics.notificationAsync(type);
+    } catch (error) {
+      // Silently fail - haptics not critical
+    }
+  },
+};
+
 type HomeScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Main'>;
 
 export default function HomeScreen() {
@@ -60,7 +78,7 @@ export default function HomeScreen() {
       }
       
       clearCurrentFax();
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      safeHaptics.notification(Haptics.NotificationFeedbackType.Success);
       
       Alert.alert(
         'Batch Fax Complete',
@@ -68,7 +86,7 @@ export default function HomeScreen() {
         [{ text: 'OK' }]
       );
     } catch (error) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      safeHaptics.notification(Haptics.NotificationFeedbackType.Error);
       Alert.alert('Error', 'Failed to send batch fax. Please try again.');
     }
   };
@@ -81,7 +99,7 @@ export default function HomeScreen() {
             <Text className="text-3xl font-bold text-gray-900">Send Fax</Text>
             <Pressable
               onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
                 navigation.navigate('Profile');
               }}
               className="bg-blue-100 rounded-full w-10 h-10 items-center justify-center active:bg-blue-200"
@@ -100,7 +118,7 @@ export default function HomeScreen() {
             <Text className="text-lg font-semibold text-gray-900">Recipient Fax Number</Text>
             <Pressable
               onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
                 setShowContactPicker(true);
               }}
               className="bg-blue-100 rounded-full px-3 py-1 flex-row items-center space-x-2"
@@ -124,7 +142,7 @@ export default function HomeScreen() {
             />
             <Pressable
               onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
                 setShowContactPicker(true);
               }}
               className="absolute right-3 top-3 bottom-3 w-8 items-center justify-center"
@@ -145,7 +163,7 @@ export default function HomeScreen() {
           <View className="space-y-3">
             <Pressable
               onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
                 navigation.navigate('DocumentScan');
               }}
               className="bg-blue-500 rounded-xl p-4 flex-row items-center justify-center space-x-3 active:bg-blue-600"
@@ -156,7 +174,7 @@ export default function HomeScreen() {
 
             <Pressable
               onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
                 navigation.navigate('FileUpload');
               }}
               className="bg-gray-100 border border-gray-300 rounded-xl p-4 flex-row items-center justify-center space-x-3 active:bg-gray-200"
@@ -211,7 +229,7 @@ export default function HomeScreen() {
           {currentFax.documents.length > 0 && (
             <Pressable
               onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
                 setShowBatchFax(true);
               }}
               className="bg-purple-100 border border-purple-300 rounded-xl p-4 flex-row items-center justify-center space-x-2 active:bg-purple-200"
@@ -227,7 +245,7 @@ export default function HomeScreen() {
           <Pressable
             onPress={() => {
               if (canProceed) {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium);
                 navigation.navigate('FaxReview');
               }
             }}

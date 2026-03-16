@@ -35,31 +35,72 @@ const openai_api_key = Constants.expoConfig.extra.apikey;
 export default function App() {
   // Initialize app services on start
   useEffect(() => {
+    // Wrap all initialization in defensive try-catch blocks
+    // This prevents any single service from freezing the entire app
+    
     // Resume polling for incomplete faxes
-    resumePolling();
+    try {
+      resumePolling();
+    } catch (error) {
+      console.error('Failed to resume polling:', error);
+    }
 
     // Initialize notifications
-    initializeNotifications();
+    const initNotifications = async () => {
+      try {
+        await initializeNotifications();
+      } catch (error) {
+        console.error('Failed to initialize notifications:', error);
+      }
+    };
+    initNotifications();
 
-    // Initialize RevenueCat for subscriptions
+    // Initialize RevenueCat for subscriptions with timeout
     const initRC = async () => {
-      await initializePurchases();
-      // Run debug checks after initialization
-      setTimeout(async () => {
-        await checkStoreKitProducts(); // Direct StoreKit check
-        await debugCheckProducts();     // Full debug check
-      }, 2000);
+      try {
+        // Add timeout wrapper to prevent hanging
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('RevenueCat initialization timeout')), 8000)
+        );
+        
+        await Promise.race([
+          initializePurchases(),
+          timeoutPromise
+        ]);
+        
+        // Run debug checks after initialization (non-blocking)
+        setTimeout(async () => {
+          try {
+            await checkStoreKitProducts(); // Direct StoreKit check
+            await debugCheckProducts();     // Full debug check
+          } catch (error) {
+            console.error('Debug checks failed:', error);
+          }
+        }, 2000);
+      } catch (error) {
+        console.error('Failed to initialize RevenueCat:', error);
+        // App continues to work without subscriptions
+      }
     };
     initRC();
     
     // Handle notification taps
-    const subscription = addNotificationResponseListener((response) => {
-      console.log('Notification tapped:', response.notification.request.content.data);
-      // TODO: Navigate to relevant screen based on notification data
-    });
+    let subscription: any = null;
+    try {
+      subscription = addNotificationResponseListener((response) => {
+        console.log('Notification tapped:', response.notification.request.content.data);
+        // TODO: Navigate to relevant screen based on notification data
+      });
+    } catch (error) {
+      console.error('Failed to add notification listener:', error);
+    }
     
     return () => {
-      subscription.remove();
+      try {
+        subscription?.remove();
+      } catch (error) {
+        console.error('Failed to remove notification listener:', error);
+      }
     };
   }, []);
 

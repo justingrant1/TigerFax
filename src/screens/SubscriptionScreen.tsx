@@ -340,7 +340,10 @@ export default function SubscriptionScreen({ navigation }: Props) {
             Payment charged to App Store account at confirmation of purchase.
           </Text>
           
-          <View className="flex-row justify-center mt-3 space-x-4">
+          <View className="flex-row justify-center mt-3 flex-wrap gap-x-4 gap-y-2">
+            <TouchableOpacity onPress={() => Linking.openURL('https://www.apple.com/legal/internet-services/itunes/dev/stdeula/')}>
+              <Text className="text-xs text-blue-600">Terms of Use (EULA)</Text>
+            </TouchableOpacity>
             <TouchableOpacity onPress={() => Linking.openURL('https://tigerfax.com/terms')}>
               <Text className="text-xs text-blue-600">Terms of Service</Text>
             </TouchableOpacity>
