@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { View, Text, Pressable, TextInput, ScrollView, Alert, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -57,16 +57,63 @@ export default function HomeScreen() {
   const navigation = useNavigation<HomeScreenNavigationProp>();
   const { userData, user } = useAuth();
   const { currentFax, setRecipient, sendFax, clearCurrentFax } = useFaxStore();
+  const scrollRef = useRef<ScrollView>(null);
   const [showContactPicker, setShowContactPicker] = useState(false);
   const [showBatchFax, setShowBatchFax] = useState(false);
   const [phoneError, setPhoneError] = useState<string>('');
+  // Inline validation errors shown when user taps the CTA without completing required fields
+  const [validationError, setValidationError] = useState<string>('');
 
   const isPro = userData?.subscriptionTier === 'pro';
   const freePagesLeft = userData?.freePagesRemaining ?? 0;
   const paidCredits = userData?.creditsRemaining ?? 0;
   const profileInitial = (userData?.displayName?.charAt(0) || user?.email?.charAt(0) || 'U').toUpperCase();
 
-  const canProceed = currentFax.recipient.trim() && currentFax.documents.length > 0 && !phoneError;
+  // Compute the cost label for the send button so the user knows the price before tapping
+  const totalPages = currentFax.documents.length + (currentFax.coverPage ? 1 : 0);
+  const pagesNeedingPayment = isPro ? 0 : Math.max(0, totalPages - freePagesLeft);
+  const sendButtonCost = pagesNeedingPayment > 0
+    ? ` — $${(pagesNeedingPayment * 0.99).toFixed(2)}`
+    : '';
+
+  // Button label — always shows something actionable
+  const hasRecipient = !!currentFax.recipient.trim();
+  const hasDocs = currentFax.documents.length > 0;
+  const sendButtonLabel = hasRecipient && hasDocs && !phoneError && pagesNeedingPayment > 0
+    ? `Review & Send${sendButtonCost}`
+    : 'Review & Send Fax';
+
+  // Handle the CTA tap — validate inline instead of disabling the button
+  const handleReviewAndSend = () => {
+    // Clear previous validation error
+    setValidationError('');
+
+    if (!hasRecipient) {
+      safeHaptics.notification(Haptics.NotificationFeedbackType.Warning);
+      setValidationError('Please enter a recipient fax number.');
+      // Scroll to top so the recipient field is visible
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+      return;
+    }
+
+    if (phoneError) {
+      safeHaptics.notification(Haptics.NotificationFeedbackType.Warning);
+      setValidationError('Please enter a valid fax number.');
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+      return;
+    }
+
+    if (!hasDocs) {
+      safeHaptics.notification(Haptics.NotificationFeedbackType.Warning);
+      setValidationError('Please add at least one document to fax.');
+      return;
+    }
+
+    // All good — proceed
+    safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium);
+    setValidationError('');
+    navigation.navigate('FaxReview');
+  };
 
   const handlePhoneChange = (text: string) => {
     setRecipient(text);
@@ -133,7 +180,7 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      <ScrollView className="flex-1 px-6 pt-6" keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
+      <ScrollView ref={scrollRef} className="flex-1 px-6 pt-6" keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
         {/* Free pages / credits status banner */}
         {userData && !isPro && (
           <TouchableOpacity
@@ -295,27 +342,28 @@ export default function HomeScreen() {
             </Pressable>
           )}
           
-          {/* Regular Send Button */}
+          {/* Review & Send — always blue, validates inline on tap */}
           <Pressable
-            onPress={() => {
-              if (canProceed) {
-                safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium);
-                navigation.navigate('FaxReview');
-              }
-            }}
-            disabled={!canProceed}
-            className={`rounded-xl p-4 ${
-              canProceed 
-                ? 'bg-blue-500 active:bg-blue-600' 
-                : 'bg-gray-300'
-            }`}
+            onPress={handleReviewAndSend}
+            className="bg-blue-500 active:bg-blue-600 rounded-xl p-4 flex-row items-center justify-center space-x-2"
           >
-            <Text className={`text-center font-semibold text-base ${
-              canProceed ? 'text-white' : 'text-gray-500'
-            }`}>
-              Review & Send Fax
+            <Ionicons
+              name={hasRecipient && hasDocs && !phoneError && pagesNeedingPayment > 0 ? 'card-outline' : 'send'}
+              size={18}
+              color="white"
+            />
+            <Text className="text-white font-semibold text-base">
+              {sendButtonLabel}
             </Text>
           </Pressable>
+
+          {/* Inline validation error — shown below the button, clears on next valid tap */}
+          {validationError ? (
+            <View className="flex-row items-center space-x-2 px-1">
+              <Ionicons name="alert-circle" size={15} color="#EF4444" />
+              <Text className="text-red-500 text-sm flex-1">{validationError}</Text>
+            </View>
+          ) : null}
         </View>
       </View>
 

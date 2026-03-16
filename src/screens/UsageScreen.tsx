@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useFaxStore } from '../state/fax-store';
+import { useAuth } from '../contexts/AuthContext';
 import { format, startOfMonth, endOfMonth, subMonths, isWithinInterval } from 'date-fns';
 
 const COST_PER_PAGE = 0.99; // $0.99 per page
@@ -17,6 +18,7 @@ export default function UsageScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { faxHistory } = useFaxStore();
+  const { userData } = useAuth();
 
   // Calculate statistics
   const stats = useMemo(() => {
@@ -27,7 +29,7 @@ export default function UsageScreen() {
       end: endOfMonth(subMonths(now, 1)) 
     };
 
-    // Filter faxes by period
+    // Filter local history by period (for monthly breakdowns)
     const currentMonthFaxes = faxHistory.filter(fax =>
       isWithinInterval(new Date(fax.timestamp), currentMonth)
     );
@@ -36,16 +38,20 @@ export default function UsageScreen() {
       isWithinInterval(new Date(fax.timestamp), lastMonth)
     );
 
-    // Calculate totals
-    const totalFaxes = faxHistory.length;
-    const totalPages = faxHistory.reduce((sum, fax) => sum + fax.totalPages, 0);
+    // Use Firestore usage counters as the authoritative lifetime totals.
+    // The local faxHistory (AsyncStorage) can be incomplete if the user cleared
+    // history, reinstalled, or used multiple devices.
+    const totalFaxes = userData?.faxesSent ?? faxHistory.length;
+    const totalPages = userData?.totalPagesSent ?? faxHistory.reduce((sum, fax) => sum + fax.totalPages, 0);
     const totalCost = totalPages * COST_PER_PAGE;
 
     const successfulFaxes = faxHistory.filter(fax => fax.status === 'sent').length;
     const failedFaxes = faxHistory.filter(fax => fax.status === 'failed').length;
-    const successRate = totalFaxes > 0 ? (successfulFaxes / totalFaxes * 100) : 0;
+    // Success rate from local history (best we have without per-fax status in Firestore)
+    const localTotal = faxHistory.length;
+    const successRate = localTotal > 0 ? (successfulFaxes / localTotal * 100) : 0;
 
-    // Current month stats
+    // Current month stats (from local history — timestamps available)
     const currentMonthTotal = currentMonthFaxes.length;
     const currentMonthPages = currentMonthFaxes.reduce((sum, fax) => sum + fax.totalPages, 0);
     const currentMonthCost = currentMonthPages * COST_PER_PAGE;
@@ -73,7 +79,7 @@ export default function UsageScreen() {
       lastMonthCost,
       avgCostPerFax,
     };
-  }, [faxHistory]);
+  }, [faxHistory, userData]);
 
   return (
     <View className="flex-1 bg-white">

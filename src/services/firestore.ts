@@ -99,6 +99,20 @@ export const getUserDocument = async (uid: string): Promise<UserData> => {
       lastLogin: new Date().toISOString(),
     });
 
+    // Calculate freePagesRemaining correctly for legacy users who predate the field.
+    // If the field exists in DB, use it directly (even if 0).
+    // If it doesn't exist, derive it from usage.totalPagesSent so we don't
+    // incorrectly show 3 free pages remaining for users who already used them.
+    const FREE_PAGES_TOTAL = 3;
+    let freePagesRemaining: number;
+    if (data.freePagesRemaining !== undefined && data.freePagesRemaining !== null) {
+      freePagesRemaining = data.freePagesRemaining;
+    } else {
+      // Legacy user: derive from pages already sent
+      const pagesSent = data.usage?.totalPagesSent ?? 0;
+      freePagesRemaining = Math.max(0, FREE_PAGES_TOTAL - pagesSent);
+    }
+
     return {
       uid,
       email: data.email || null,
@@ -106,8 +120,7 @@ export const getUserDocument = async (uid: string): Promise<UserData> => {
       photoURL: data.photoURL || null,
       subscriptionTier: data.subscriptionTier || 'free',
       faxesRemaining: data.faxesRemaining ?? 0,
-      // freePagesRemaining: default to 3 for existing users who predate this field
-      freePagesRemaining: data.freePagesRemaining ?? 3,
+      freePagesRemaining,
       creditsRemaining: data.creditsRemaining || 0,
       monthlyResetDate: data.monthlyResetDate,
       createdAt: data.createdAt,
@@ -115,6 +128,8 @@ export const getUserDocument = async (uid: string): Promise<UserData> => {
       faxNumber: data.faxNumber || undefined,
       faxNumberAssignedAt: data.faxNumberAssignedAt || undefined,
       unreadFaxCount: data.unreadFaxCount || 0,
+      faxesSent: data.usage?.totalFaxesSent ?? 0,
+      totalPagesSent: data.usage?.totalPagesSent ?? 0,
     };
   } catch (error) {
     console.error('Error getting user document:', error);
@@ -412,6 +427,17 @@ export const subscribeToUserData = (
     (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
+
+        // Same legacy-safe calculation as getUserDocument
+        const FREE_PAGES_TOTAL = 3;
+        let freePagesRemaining: number;
+        if (data.freePagesRemaining !== undefined && data.freePagesRemaining !== null) {
+          freePagesRemaining = data.freePagesRemaining;
+        } else {
+          const pagesSent = data.usage?.totalPagesSent ?? 0;
+          freePagesRemaining = Math.max(0, FREE_PAGES_TOTAL - pagesSent);
+        }
+
         const userData: UserData = {
           uid,
           email: data.email || null,
@@ -419,7 +445,7 @@ export const subscribeToUserData = (
           photoURL: data.photoURL || null,
           subscriptionTier: data.subscriptionTier || 'free',
           faxesRemaining: data.faxesRemaining ?? 0,
-          freePagesRemaining: data.freePagesRemaining ?? 3,
+          freePagesRemaining,
           creditsRemaining: data.creditsRemaining || 0,
           monthlyResetDate: data.monthlyResetDate,
           createdAt: data.createdAt,
@@ -427,6 +453,8 @@ export const subscribeToUserData = (
           faxNumber: data.faxNumber || undefined,
           faxNumberAssignedAt: data.faxNumberAssignedAt || undefined,
           unreadFaxCount: data.unreadFaxCount || 0,
+          faxesSent: data.usage?.totalFaxesSent ?? 0,
+          totalPagesSent: data.usage?.totalPagesSent ?? 0,
         };
         callback(userData);
       }

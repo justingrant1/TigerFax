@@ -49,7 +49,8 @@ export interface UserData {
   faxNumber?: string; // Pro users get a dedicated fax number
   faxNumberAssignedAt?: string;
   unreadFaxCount?: number;
-  faxesSent?: number; // Lifetime total faxes sent
+  faxesSent?: number; // Lifetime total faxes sent (from usage.totalFaxesSent)
+  totalPagesSent?: number; // Lifetime total pages sent (from usage.totalPagesSent)
 }
 
 interface AuthContextType {
